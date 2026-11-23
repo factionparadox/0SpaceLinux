@@ -234,7 +234,7 @@ login, so they're yours to change.
 choose **ISO**, open the newest run that has a green tick, and download
 **0space-linux-iso** under *Artifacts* (a zip holding the ISO and its
 checksum; about 3.6 GB). To build a fresh one, press **Run workflow** on the
-same page; it takes about an hour and nothing is compiled on your machine.
+same page (or push to the `iso` branch); it takes about an hour and nothing is compiled on your machine.
 
 **2. Write it to a USB stick** (8 GB or more; it will be wiped). On Windows,
 use [Rufus](https://rufus.ie): pick the ISO, and when Rufus asks how to write

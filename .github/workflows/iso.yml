@@ -1,12 +1,12 @@
 # Builds the 0-Space installer ISO on GitHub's machines, so nothing has to be
-# compiled at home. Run it from the Actions tab ("Run workflow"), or push a
-# tag starting with v. The ISO is attached to the run as "0space-linux-iso".
+# compiled at home. Run it from the Actions tab ("Run workflow"), or push to
+# the iso branch. The ISO is attached to the run as "0space-linux-iso".
 name: ISO
 
 on:
   workflow_dispatch:
   push:
-    tags: ["v*"]
+    branches: [iso]
 
 jobs:
   iso:
