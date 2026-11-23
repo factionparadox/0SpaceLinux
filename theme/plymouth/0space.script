@@ -1,0 +1,69 @@
+# 0-Space boot splash: the Dome, and a carousel of lights turning while
+# the ship wakes. Written in Plymouth's script language.
+
+Window.SetBackgroundTopColor(0.03, 0.05, 0.10);
+Window.SetBackgroundBottomColor(0.02, 0.03, 0.07);
+
+w = Window.GetWidth();
+h = Window.GetHeight();
+
+dome = Image("boot.png");
+cover = Math.Max(w / dome.GetWidth(), h / dome.GetHeight());
+dome_image = dome.Scale(dome.GetWidth() * cover, dome.GetHeight() * cover);
+dome_sprite = Sprite(dome_image);
+dome_sprite.SetPosition((w - dome_image.GetWidth()) / 2, (h - dome_image.GetHeight()) / 2, -100);
+
+title = Image.Text("0-Space Linux", 0.85, 0.76, 0.60, 1, "Sans Bold 30");
+title_sprite = Sprite(title);
+title_sprite.SetPosition((w - title.GetWidth()) / 2, h * 0.20, 10);
+
+words = Image.Text("< Dome integrity nominal >", 0.62, 0.83, 1.0, 1, "Sans 14");
+words_sprite = Sprite(words);
+words_sprite.SetPosition((w - words.GetWidth()) / 2, h * 0.20 + title.GetHeight() + 14, 10);
+
+light = Image("light.png");
+count = 7;
+for (i = 0; i < count; i++)
+  lights[i] = Sprite(light);
+
+angle = 0;
+
+fun refresh_callback ()
+  {
+    angle = angle + 0.025;
+    cx = w / 2;
+    cy = h * 0.58;
+    rx = w * 0.15;
+    ry = h * 0.045;
+    for (i = 0; i < count; i++)
+      {
+        a = angle + i * 2 * Math.Pi / count;
+        depth = (1 - Math.Cos(a)) / 2;
+        s = 1 / (1 + 1.8 * depth);
+        size = 48 * s;
+        lights[i].SetImage(light.Scale(size, size));
+        lights[i].SetPosition(cx + rx * Math.Sin(a) * s - size / 2, cy - ry * (1 - 2 * depth) - size / 2, 20 - depth * 10);
+        lights[i].SetOpacity(1 - 0.6 * depth);
+      }
+  }
+
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# A disk password prompt, in thought-speak, for encrypted ships.
+fun display_password_callback (prompt, bullets)
+  {
+    stars = "";
+    for (i = 0; i < bullets; i++)
+      stars = stars + "*";
+    prompt_image = Image.Text("< " + prompt + " " + stars + " >", 0.85, 0.76, 0.60, 1, "Sans 16");
+    prompt_sprite = Sprite(prompt_image);
+    prompt_sprite.SetPosition((w - prompt_image.GetWidth()) / 2, h * 0.72, 30);
+  }
+
+fun display_normal_callback ()
+  {
+    prompt_sprite = Sprite();
+  }
+
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+Plymouth.SetDisplayNormalFunction(display_normal_callback);

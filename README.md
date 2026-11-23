@@ -77,6 +77,7 @@ automatically by import-tree. Each feature is one file:
 | `modules/features/forms.nix` | Packages acquired with `escafil` |
 | `modules/features/escafil.nix` | The operator |
 | `modules/features/branding.nix` | What the ship calls itself |
+| `modules/features/theme.nix` | Everything else's look: boot menu, splash, consoles, login, apps, lock |
 | `modules/flake/hosts.nix` | Every folder in `hosts/` becomes a machine |
 | `modules/flake/installer.nix` | The installer ISO |
 
@@ -90,8 +91,33 @@ Patching systemd normally changes the identity of everything built against
 it, so Nix would rebuild a large part of the system. Instead, the system
 comes from the binary cache as usual and `system.replaceDependencies` swaps
 the patched systemd in afterwards. Only systemd itself is compiled, once per
-systemd version. The patch only removes code, so the swap is safe. (The
-initrd keeps stock systemd; it has no user records.)
+systemd version. The patch only removes code, so the swap is safe.
+
+The initrd is a compressed archive the swap can't reach, and its systemd is
+PID 1 until the real system takes over, so it's given the liberated build
+directly. Both PID 1s are liberated.
+
+## Theme
+
+One Andalite palette (night navy, fur blue and tan, dome glass, the pink of
+home's trees) runs through everything you see:
+
+| Where | What |
+|---|---|
+| Boot menu | Limine over the Dome, "0-Space Linux" in fur tan, palette in its terminal |
+| Boot splash | Plymouth: the Dome, the title, `< Dome integrity nominal >`, lights orbiting as a carousel; the disk password prompt is thought-speak |
+| Consoles | The palette on every text console |
+| Login | tuigreet: `< Welcome back to the Dome >` (only when autologin is off or you log out) |
+| Terminal | kitty in navy glass, Maple Mono, the palette |
+| Apps | GTK 3 and 4 dark (adw-gtk3/libadwaita) recoloured with the palette, Qt to match, Papirus icons, Bibata cursor |
+| Firefox | Dark, no welcome pages, no telemetry |
+| Lock | swaylock over the Dome with a fur-blue ring |
+
+The GTK colours are copied to `~/.config/gtk-3.0` and `gtk-4.0` on first
+login, so they're yours to change.
+
+![Themed terminal](docs/themed-terminal.png)
+![Lock screen](docs/themed-lock.png)
 
 ## Building the ISO
 
@@ -115,8 +141,10 @@ the rest from the NixOS cache.
 Tested, on nixos-unstable (systemd 262, Wayfire 0.10.1, Quickshell 0.3.2):
 
 - The flake evaluates, and the carousel plugin builds as a Nix package.
-- The full system builds. Its systemd is the liberated one: `birthDate`
-  appears in none of its files, and NixOS's stock systemd is gone from the system.
+- The full system builds. Both PID 1s (initrd and system) are the liberated
+  systemd: `birthDate` appears in neither, and NixOS's stock systemd is gone
+  from the system.
+- The theme: kitty and swaylock checked in the running session (screenshots above).
 - The built session runs: Wayfire with the carousel, the shell with the Dome,
   ring floor, names in the script and thought-speak. See `docs/ring-headless-test.png`.
 - A machine set up the way the installer writes it builds with only small
@@ -130,6 +158,9 @@ Not yet tested:
   through the sandbox's network.
 - Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
 - The keybindings (they need real input).
+- The boot menu, boot splash, login screen and GTK/Qt apps haven't been seen
+  running yet; they build, but the test VM boots the installer, not an
+  installed system.
 - Two other copies of stock systemd's code remain in the system's store:
   plain `systemd` and `systemd-minimal`, which a few packages depend on. They
   don't run the system or its logins. Swapping them too would mean two more

@@ -17,6 +17,11 @@
       });
     in
     {
+      # The initrd is a compressed archive replaceDependencies can't rewrite,
+      # and its systemd is PID 1 until switch-root, so it gets the liberated
+      # build directly. Nothing else is rebuilt for this.
+      boot.initrd.systemd.package = liberated;
+
       system.replaceDependencies.replacements = [
         { oldDependency = stock; newDependency = liberated; }
       ];

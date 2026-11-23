@@ -21,6 +21,15 @@
         export QT_QPA_PLATFORM=wayland
         export ZEROSPACE_DOME=${art}/dome.png
 
+        # First login: give GTK apps the Andalite colours (yours to change after).
+        for v in gtk-3.0 gtk-4.0; do
+          if [ ! -e "$HOME/.config/$v/gtk.css" ]; then
+            mkdir -p "$HOME/.config/$v"
+            cp /etc/0space/gtk.css "$HOME/.config/$v/gtk.css"
+            chmod u+w "$HOME/.config/$v/gtk.css"
+          fi
+        done
+
         config="$HOME/.config/wayfire.ini"
         [ -f "$config" ] || config=${wayfireIni}
         exec wayfire -c "$config"
@@ -31,7 +40,6 @@
         session
         quickshell
         kitty
-        firefox
         swaylock
         swayidle
         grim

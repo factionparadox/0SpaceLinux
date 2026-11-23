@@ -15,9 +15,7 @@
       nixpkgs.config.allowUnfree = true;
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
-      boot.loader.systemd-boot.enable = true;
-      boot.loader.systemd-boot.configurationLimit = 12;
-      boot.loader.efi.canTouchEfiVariables = true;
+      boot.loader.efi.canTouchEfiVariables = true;   # the boot menu itself (Limine) is in theme.nix
       boot.kernelPackages = pkgs.linuxPackages_latest;   # new enough for the Core Ultra 5 325H
 
       hardware.enableRedistributableFirmware = true;
