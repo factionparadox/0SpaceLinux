@@ -46,22 +46,54 @@ escafil orders            all of the above
 
 ## Controls
 
+**Workstations**
+
 | Keys | Order |
 |---|---|
-| Super+Left / Super+Right | Spin the carousel |
+| Super+1 to 9 | Go to a workstation (each has its own carousel) |
+| Super+Shift+1 to 9 | Take the front window to a workstation |
 | Super+Tab | Stalk-eye overview: every window laid out flat |
-| Super+R | Cycle the front window's width: 33, 50, 67 or 100% |
-| Super+F | Toggle the front window between full width and 50% |
-| Super+Shift+F | True fullscreen |
-| Super+Q | Close the front window |
-| Super+1 to 9 | Go to a workspace (each has its own carousel) |
-| Super+Shift+1 to 9 | Take the front window to a workspace |
-| Super+T / Super+W | Terminal / browser |
+| Super+Left / Super+Right | Spin the carousel |
+
+**Applications**
+
+| Keys | Opens |
+|---|---|
+| Super+Space | The launcher: type, Up/Down, Enter |
+| Super+T | Mirrorwave (terminal) |
+| Super+W | Firefox |
+| Super+D | Discord |
+| Super+V | VLC |
+| Super+E | Thunar (files) |
+| Super+A | ani-cli, in Mirrorwave |
+| Super+P | Proton VPN |
 | Super+S | `escafil scan` |
-| Super+Shift+S | Record a region of the screen |
-| Super+X / Super+Z | Lock / suspend |
+
+**Windows**
+
+| Keys | Order |
+|---|---|
+| Super+Q | Close the front window |
+| Super+F | Toggle the front window between full width and 50% |
+| Super+R | Cycle the front window's width: 33, 50, 67 or 100% |
+| Super+Shift+F | True fullscreen |
+| Super+Shift+Space | Float the window above the carousel, or put it back |
+| Super+left drag | Move a window (a carousel window floats where it is first) |
+| Super+right drag | Resize a window from its nearest corner (floats it too) |
 
 Clicking any window on the carousel spins it round to the front.
+
+**Session, screen and keyboard**
+
+| Keys | Order |
+|---|---|
+| Super+X / Super+Z | Lock / suspend |
+| Super+Shift+S | Select a region, then mark it up in swappy |
+| Alt+Shift | Switch keyboard layout (gb and ru) |
+| Volume, mute, mic mute | Change the level, shown as a gauge at the bottom |
+| Brightness up / down | The same, for the screen |
+
+![The launcher](docs/launcher.png)
 
 ## How it's built
 
@@ -78,6 +110,7 @@ automatically by import-tree. Each feature is one file:
 | `modules/features/escafil.nix` | The operator |
 | `modules/features/branding.nix` | What the ship calls itself |
 | `modules/features/mirrorwave.nix` | Mirrorwave, the terminal |
+| `modules/features/apps.nix` | The standard apps, and the commands the keys use to reach the shell |
 | `modules/features/theme.nix` | Everything else's look: boot menu, splash, consoles, login, apps, lock |
 | `modules/flake/hosts.nix` | Every folder in `hosts/` becomes a machine |
 | `modules/flake/installer.nix` | The installer ISO |
@@ -193,8 +226,9 @@ Not yet tested:
 - A complete install, start to finish. The test VM couldn't reach the cache
   through the sandbox's network.
 - Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
-- The keybindings (they need real input), including Mirrorwave's
-  English/Andalite switch.
+- The keybindings (they need real input), including floating and Super+drag,
+  the media keys and Mirrorwave's English/Andalite switch. The launcher and
+  the level gauge were opened from the command line in the test session.
 - The boot menu, boot splash, login screen and GTK/Qt apps haven't been seen
   running yet; they build, but the test VM boots the installer, not an
   installed system.

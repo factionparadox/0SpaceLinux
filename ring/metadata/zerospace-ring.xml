@@ -29,6 +29,21 @@
 			<_long>Toggle the centre window between full width and 50 percent.</_long>
 			<default>&lt;super&gt; KEY_F</default>
 		</option>
+		<option name="toggle_float" type="activator">
+			<_short>Toggle floating</_short>
+			<_long>Take the focused window out of the carousel to float above it, or put it back at the centre.</_long>
+			<default>&lt;super&gt; &lt;shift&gt; KEY_SPACE</default>
+		</option>
+		<option name="drag_move" type="button">
+			<_short>Drag to move</_short>
+			<_long>Move the window under the pointer, floating it first if it is in the carousel.</_long>
+			<default>&lt;super&gt; BTN_LEFT</default>
+		</option>
+		<option name="drag_resize" type="button">
+			<_short>Drag to resize</_short>
+			<_long>Resize the window under the pointer from its nearest corner, floating it first if it is in the carousel.</_long>
+			<default>&lt;super&gt; BTN_RIGHT</default>
+		</option>
 		<option name="tile_width" type="double">
 			<_short>Tile width</_short>
 			<_long>Width of an orbiting tile, as a fraction of the screen width.</_long>

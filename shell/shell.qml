@@ -1,4 +1,5 @@
-// 0-Space shell: the Dome, the ring, the script, and thought-speak.
+// 0-Space shell: the Dome, the ring, the script, thought-speak, the
+// launcher (Super+Space) and the level display for volume and brightness.
 // Started by the session as: quickshell -p <this file>
 //
 // Everything here is drawn, so the desktop looks like 0-Space even before
@@ -10,6 +11,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import Quickshell.Io
+import Quickshell.Widgets
 
 ShellRoot {
     id: root
@@ -29,10 +31,10 @@ ShellRoot {
     readonly property string userArt: Quickshell.env("HOME") + "/.local/share/0space/art/dome.png"
     readonly property string systemArt: Quickshell.env("ZEROSPACE_DOME") || "/usr/share/0space/art/dome.png"
 
+    readonly property color hull: "#0b1630"
+    readonly property color lineColour: "#24365a"
+
     // ------------------------------------------------------------ the script
-    // An invented script: every letter becomes a glyph built from arcs, a
-    // stem, hooks and a dot, chosen by the letter's code, so the same word
-    // always looks the same. Spaces stay spaces.
     // The Andalite script is a real font (art/0space-script.ttf, built by
     // tools/make-script-font.py): write English in it and it comes out alien.
     readonly property string scriptFont: "0-Space Script"
@@ -500,6 +502,283 @@ ShellRoot {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ launcher
+    // Super+Space (Wayfire runs: 0space-call launcher toggle). Type to search;
+    // Up/Down to choose, Enter to launch, Esc to close.
+    IpcHandler {
+        target: "launcher"
+        function toggle(): void { launcher.open = !launcher.open }
+        function open(): void { launcher.open = true }
+        function close(): void { launcher.open = false }
+    }
+
+    PanelWindow {
+        id: launcher
+        property bool open: false
+        property string query: ""
+        property int selected: 0
+
+        visible: open
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "0space-launcher"
+        WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+        onOpenChanged: {
+            query = "";
+            search.text = "";
+            selected = 0;
+            if (open) search.forceActiveFocus();
+        }
+        onQueryChanged: selected = 0
+
+        // Best matches first: names that start with what you typed, then names
+        // that contain it, then descriptions and keywords.
+        readonly property var matches: {
+            const q = query.trim().toLowerCase();
+            const all = DesktopEntries.applications.values.filter(e => !e.noDisplay);
+            const scored = [];
+            for (const e of all) {
+                const name = (e.name || "").toLowerCase();
+                let score = -1;
+                if (q === "") score = 0;
+                else if (name.startsWith(q)) score = 0;
+                else if (name.includes(q)) score = 1;
+                else if (((e.genericName || "") + " " + (e.comment || "") + " " + (e.keywords || []).join(" "))
+                         .toLowerCase().includes(q)) score = 2;
+                if (score >= 0) scored.push({ entry: e, score: score, name: name });
+            }
+            scored.sort((a, b) => a.score - b.score || a.name.localeCompare(b.name));
+            return scored.map(x => x.entry);
+        }
+
+        function launch(entry) {
+            if (!entry) return;
+            entry.execute();
+            open = false;
+        }
+
+        // The Dome dims behind it; clicking outside closes it.
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0.03, 0.07, 0.15, 0.55)
+            MouseArea { anchors.fill: parent; onClicked: launcher.open = false }
+        }
+
+        Rectangle {
+            id: panel
+            width: Math.min(620, parent.width - 80)
+            height: column.implicitHeight + 36
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: parent.height * 0.2
+            radius: 16
+            color: Qt.rgba(0.04, 0.09, 0.19, 0.94)
+            border.color: root.glass
+            border.width: 1
+            MouseArea { anchors.fill: parent }   // clicks on the panel don't close it
+
+            Column {
+                id: column
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 18 }
+                spacing: 12
+
+                Translated { text: "Launch"; glyph: 8; size: 12; letterSpacing: 3; upper: true; scriptInk: root.furBlue; ink: root.furBlue }
+
+                Row {
+                    width: parent.width
+                    spacing: 4
+                    Text { text: "<"; color: root.furTan; font.pixelSize: 22 }
+                    TextInput {
+                        id: search
+                        width: parent.width - 40
+                        color: root.furTan
+                        selectionColor: root.furBlue
+                        font.pixelSize: 22
+                        cursorDelegate: Rectangle { width: 2; color: root.glass }
+                        onTextChanged: launcher.query = text
+                        Text {
+                            visible: !search.text
+                            text: "What do you need, " + (Quickshell.env("USER") || "aristh") + "?"
+                            color: Qt.rgba(0.85, 0.76, 0.6, 0.45)
+                            font.pixelSize: 22
+                        }
+                        Keys.onPressed: event => {
+                            const n = launcher.matches.length;
+                            if (event.key === Qt.Key_Escape) { launcher.open = false; event.accepted = true; }
+                            else if (event.key === Qt.Key_Down || (event.key === Qt.Key_Tab)) {
+                                launcher.selected = Math.min(n - 1, launcher.selected + 1); event.accepted = true;
+                            } else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab) {
+                                launcher.selected = Math.max(0, launcher.selected - 1); event.accepted = true;
+                            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                                launcher.launch(launcher.matches[launcher.selected]); event.accepted = true;
+                            }
+                        }
+                    }
+                    Text { text: ">"; color: root.furTan; font.pixelSize: 22 }
+                }
+
+                Rectangle { width: parent.width; height: 1; color: root.lineColour }
+
+                ListView {
+                    id: results
+                    width: parent.width
+                    height: Math.min(8, Math.max(1, count)) * 44
+                    clip: true
+                    model: launcher.matches
+                    currentIndex: launcher.selected
+                    highlightMoveDuration: 90
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    delegate: Item {
+                        id: row
+                        required property var modelData
+                        required property int index
+                        width: results.width
+                        height: 44
+                        readonly property bool chosen: index === launcher.selected
+
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: 8
+                            color: row.chosen ? Qt.rgba(0.42, 0.64, 0.85, 0.22) : "transparent"
+                            Rectangle {
+                                visible: row.chosen
+                                width: 3; radius: 2
+                                anchors { left: parent.left; top: parent.top; bottom: parent.bottom; margins: 8 }
+                                color: root.glass
+                            }
+                        }
+
+                        Row {
+                            anchors { left: parent.left; leftMargin: 18; verticalCenter: parent.verticalCenter }
+                            spacing: 12
+                            IconImage {
+                                implicitSize: 26
+                                anchors.verticalCenter: parent.verticalCenter
+                                source: Quickshell.iconPath(row.modelData.icon, "application-x-executable")
+                            }
+                            Translated {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: row.modelData.name
+                                glyph: 8
+                                size: 16
+                                scriptInk: row.chosen ? root.glass : root.furBlue
+                                ink: row.chosen ? root.furTan : "#c8d3e6"
+                            }
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: row.modelData.genericName || ""
+                                color: Qt.rgba(0.78, 0.83, 0.9, 0.45)
+                                font.pixelSize: 12
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onEntered: launcher.selected = row.index
+                            onClicked: launcher.launch(row.modelData)
+                        }
+                    }
+                }
+
+                Text {
+                    visible: launcher.matches.length === 0
+                    text: "< Nothing aboard by that name. Try: escafil seek " + launcher.query.trim() + " >"
+                    color: Qt.rgba(0.85, 0.76, 0.6, 0.6)
+                    font.pixelSize: 13
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ levels
+    // Volume, microphone and brightness keys run 0space-level, which sets the
+    // level and reports it here: a gauge at the bottom of the screen.
+    IpcHandler {
+        target: "level"
+        function display(kind: string, percent: int, muted: bool): void {
+            level.kind = kind;
+            level.percent = Math.max(0, Math.min(100, percent));
+            level.muted = muted;
+            level.shown = true;
+            levelTimer.restart();
+        }
+    }
+
+    Timer { id: levelTimer; interval: 1600; onTriggered: level.shown = false }
+
+    PanelWindow {
+        id: level
+        property string kind: "Volume"
+        property int percent: 0
+        property bool muted: false
+        property bool shown: false
+
+        visible: shown
+        color: "transparent"
+        anchors.bottom: true
+        margins.bottom: 64
+        implicitWidth: 420
+        implicitHeight: 64
+        exclusionMode: ExclusionMode.Ignore
+        mask: Region {}
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "0space-level"
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 14
+            color: Qt.rgba(0.04, 0.09, 0.19, 0.88)
+            border.color: level.muted ? root.treeRed : root.glass
+            border.width: 1
+
+            Row {
+                anchors.centerIn: parent
+                spacing: 14
+
+                Translated {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: level.muted ? level.kind + " off" : level.kind
+                    glyph: 7
+                    size: 13
+                    letterSpacing: 2
+                    upper: true
+                    ink: level.muted ? root.treeRed : root.furTan
+                }
+
+                // Twenty cells, one per 5%.
+                Row {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 3
+                    Repeater {
+                        model: 20
+                        Rectangle {
+                            required property int index
+                            width: 7
+                            height: 6 + index * 0.7
+                            anchors.bottom: parent.bottom
+                            radius: 2
+                            color: index < Math.round(level.percent / 5)
+                                ? (level.muted ? Qt.rgba(0.72, 0.26, 0.31, 0.5) : root.glass)
+                                : root.lineColour
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: level.percent + "%"
+                    color: root.furTan
+                    font.pixelSize: 13
+                    width: 40
                 }
             }
         }

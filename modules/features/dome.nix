@@ -19,6 +19,7 @@
         export XDG_SESSION_TYPE=wayland
         export MOZ_ENABLE_WAYLAND=1
         export QT_QPA_PLATFORM=wayland
+        export QS_ICON_THEME=Papirus-Dark
         export ZEROSPACE_DOME=${art}/dome.png
 
         # First login: give GTK apps the Andalite colours (yours to change after).

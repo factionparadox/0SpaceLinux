@@ -27,6 +27,7 @@
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/option-wrapper.hpp>
 #include <wayfire/bindings.hpp>
+#include <set>
 
 #include <algorithm>
 #include <cstdio>
@@ -105,15 +106,22 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
     wf::option_wrapper_t<wf::activatorbinding_t> overview_opt{"zerospace-ring/overview"};
     wf::option_wrapper_t<wf::activatorbinding_t> cycle_width_opt{"zerospace-ring/cycle_width"};
     wf::option_wrapper_t<wf::activatorbinding_t> maximize_opt{"zerospace-ring/maximize"};
+    wf::option_wrapper_t<wf::activatorbinding_t> toggle_float_opt{"zerospace-ring/toggle_float"};
+    wf::option_wrapper_t<wf::buttonbinding_t> drag_move_opt{"zerospace-ring/drag_move"};
+    wf::option_wrapper_t<wf::buttonbinding_t> drag_resize_opt{"zerospace-ring/drag_resize"};
     wf::option_wrapper_t<double> tile_width_opt{"zerospace-ring/tile_width"};
     wf::option_wrapper_t<double> overview_width_opt{"zerospace-ring/overview_width"};
     wf::option_wrapper_t<double> centre_height_opt{"zerospace-ring/centre_height"};
     wf::option_wrapper_t<int> gap_opt{"zerospace-ring/gap"};
 
+    // Floating windows are left where you put them, above the carousel.
+    std::set<wayfire_toplevel_view> floating;
+
     bool is_ringable(wayfire_toplevel_view view)
     {
         return view && view->is_mapped() && (view->role == wf::VIEW_ROLE_TOPLEVEL) &&
-               !view->parent && (view->get_output() == output) && !view->minimized;
+               !view->parent && (view->get_output() == output) && !view->minimized &&
+               !floating.count(view);
     }
 
     std::shared_ptr<wf::scene::view_2d_transformer_t> transformer_for(wayfire_toplevel_view view)
@@ -285,6 +293,7 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         if (vis.empty())
         {
             publish(false, {0, 0, 0, 0}, 0, 0, 0, 0, false);
+            raise_floating();
             return;
         }
 
@@ -373,6 +382,8 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
             wf::view_bring_to_front(o.view);
         }
 
+        raise_floating();
+
         // The floor ring the windows stand on, through their bases.
         const double s_back = perspective(1.0);
         const double s_side = perspective(0.5);
@@ -438,6 +449,57 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         }
     }
 
+    void raise_floating()
+    {
+        for (auto& view : floating)
+        {
+            if (view->get_output() == output)
+            {
+                wf::view_bring_to_front(view);
+            }
+        }
+    }
+
+    // Take a window out of the carousel. It stays where it was drawn, at its
+    // real size, and floats above the others.
+    void float_view(wayfire_toplevel_view view)
+    {
+        if (!view || floating.count(view))
+        {
+            return;
+        }
+
+        const bool ringed = std::find(ring.begin(), ring.end(), view) != ring.end();
+        const wf::geometry_t drawn = view->get_bounding_box();
+        drop(view);
+        floating.insert(view);
+        if (ringed)
+        {
+            auto g = view->get_geometry();
+            view->move(drawn.x + drawn.width / 2 - g.width / 2, drawn.y + drawn.height / 2 - g.height / 2);
+        }
+
+        wf::view_bring_to_front(view);
+        layout();
+    }
+
+    // Back into the carousel, at the centre.
+    void sink_view(wayfire_toplevel_view view)
+    {
+        if (!floating.erase(view))
+        {
+            return;
+        }
+
+        if (is_ringable(view))
+        {
+            ring.insert(ring.begin(), view);
+        }
+
+        overview = false;
+        layout();
+    }
+
     void drop(wayfire_toplevel_view view)
     {
         auto it = std::find(ring.begin(), ring.end(), view);
@@ -483,6 +545,69 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         return true;
     };
 
+    wf::activator_callback on_toggle_float = [=] (const wf::activator_data_t&)
+    {
+        auto view = wf::toplevel_cast(wf::get_active_view_for_output(output));
+        if (!view)
+        {
+            return false;
+        }
+
+        if (floating.count(view))
+        {
+            sink_view(view);
+        } else
+        {
+            float_view(view);
+        }
+
+        return true;
+    };
+
+    // Super+drag: a carousel window floats where it is, then Wayfire's own
+    // move and resize take over the drag.
+    wayfire_toplevel_view view_under_cursor()
+    {
+        auto view = wf::toplevel_cast(wf::get_core().get_cursor_focus_view());
+        return (view && (view->get_output() == output) &&
+            (view->role == wf::VIEW_ROLE_TOPLEVEL)) ? view : nullptr;
+    }
+
+    wf::button_callback on_drag_move = [=] (const wf::buttonbinding_t&)
+    {
+        auto view = view_under_cursor();
+        if (!view)
+        {
+            return false;
+        }
+
+        float_view(view);
+        wf::view_move_request_signal req;
+        req.view = view;
+        output->emit(&req);
+        return true;
+    };
+
+    wf::button_callback on_drag_resize = [=] (const wf::buttonbinding_t&)
+    {
+        auto view = view_under_cursor();
+        if (!view)
+        {
+            return false;
+        }
+
+        float_view(view);
+        // Resize from the corner nearest the pointer.
+        const auto g = view->get_geometry();
+        const auto p = wf::get_core().get_cursor_position();
+        constexpr uint32_t TOP = 1, BOTTOM = 2, LEFT = 4, RIGHT = 8;
+        wf::view_resize_request_signal req;
+        req.view  = view;
+        req.edges = ((p.x < g.x + g.width / 2.0) ? LEFT : RIGHT) | ((p.y < g.y + g.height / 2.0) ? TOP : BOTTOM);
+        output->emit(&req);
+        return true;
+    };
+
     // A newly opened window takes the centre; the old centre joins the orbit.
     wf::signal::connection_t<wf::view_mapped_signal> on_mapped = [=] (wf::view_mapped_signal *ev)
     {
@@ -500,6 +625,7 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
     wf::signal::connection_t<wf::view_unmapped_signal> on_unmapped = [=] (wf::view_unmapped_signal *ev)
     {
         auto view = wf::toplevel_cast(ev->view);
+        floating.erase(view);
         if (view && (std::find(ring.begin(), ring.end(), view) != ring.end()))
         {
             drop(view);
@@ -557,6 +683,9 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         output->add_activator(overview_opt, &on_overview);
         output->add_activator(cycle_width_opt, &on_cycle_width);
         output->add_activator(maximize_opt, &on_maximize);
+        output->add_activator(toggle_float_opt, &on_toggle_float);
+        output->add_button(drag_move_opt, &on_drag_move);
+        output->add_button(drag_resize_opt, &on_drag_resize);
 
         output->connect(&on_mapped);
         output->connect(&on_unmapped);
@@ -583,6 +712,9 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         output->rem_binding(&on_overview);
         output->rem_binding(&on_cycle_width);
         output->rem_binding(&on_maximize);
+        output->rem_binding(&on_toggle_float);
+        output->rem_binding(&on_drag_move);
+        output->rem_binding(&on_drag_resize);
 
         for (auto& view : ring)
         {
@@ -597,6 +729,7 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         }
 
         ring.clear();
+        floating.clear();
     }
 };
 
