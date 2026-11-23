@@ -46,6 +46,43 @@ ShellRoot {
         renderType: Text.NativeRendering
     }
 
+    // One line, Andalite then English: <script>/English
+    component Translated: Row {
+        id: tr
+        property string text: ""
+        property real glyph: 8
+        property color scriptInk: root.glass
+        property color ink: root.furTan
+        property int size: 13
+        property real letterSpacing: 0
+        property bool upper: false
+        property string before: ""
+        property string after: ""
+        property bool outlined: false
+        spacing: 0
+        TranslatedPlain { row: tr; text: tr.before; visible: text !== "" }
+        Script {
+            text: tr.text.toLowerCase()
+            glyph: tr.glyph
+            ink: tr.scriptInk
+            style: tr.outlined ? Text.Outline : Text.Normal
+            styleColor: root.skyHigh
+            anchors.verticalCenter: parent.verticalCenter
+        }
+        TranslatedPlain { row: tr; text: "/" + (tr.upper ? tr.text.toUpperCase() : tr.text) + tr.after }
+    }
+
+    // The English half of a Translated line.
+    component TranslatedPlain: Text {
+        required property Item row
+        color: row.ink
+        font.pixelSize: row.size
+        font.letterSpacing: row.letterSpacing
+        style: row.outlined ? Text.Outline : Text.Normal
+        styleColor: root.skyHigh
+        anchors.verticalCenter: parent.verticalCenter
+    }
+
     // ------------------------------------------------------------ thought-speak
     ListModel { id: thoughts }
 
@@ -404,15 +441,7 @@ ShellRoot {
                             x: 0
                             y: parent.height + 20
                             spacing: 10
-                            Script { text: tile.label; glyph: 9; ink: root.furBlue; anchors.verticalCenter: parent.verticalCenter }
-                            Text {
-                                text: tile.label
-                                color: root.furBlue
-                                font.pixelSize: 13
-                                font.letterSpacing: 3
-                                font.capitalization: Font.AllUppercase
-                                anchors.verticalCenter: parent.verticalCenter
-                            }
+                            Translated { text: tile.label; glyph: 9; scriptInk: root.furBlue; ink: root.furBlue; size: 13; letterSpacing: 3; upper: true }
                         }
 
                         Column {
@@ -420,19 +449,13 @@ ShellRoot {
                             anchors.horizontalCenter: parent.horizontalCenter
                             y: tile.labelAbove ? -implicitHeight - 9 : parent.height + 9
                             spacing: 2
-                            Script {
+                            Translated {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: tile.label
                                 glyph: 6
-                                ink: root.glass
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: tile.label
-                                color: root.furTan
-                                font.pixelSize: 11
-                                font.letterSpacing: 2
-                                font.capitalization: Font.AllUppercase
+                                size: 11
+                                letterSpacing: 2
+                                upper: true
                             }
                         }
                     }
@@ -465,20 +488,15 @@ ShellRoot {
                             required property string line
                             anchors.horizontalCenter: parent.horizontalCenter
                             spacing: 1
-                            Script {
+                            Translated {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                text: line.toLowerCase().slice(0, 48)
-                                glyph: 7
-                                ink: root.glass
-                            }
-                            Text {
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                text: "< " + line + " >"
-                                color: root.furTan
-                                font.pixelSize: 17
-                                font.letterSpacing: 1.5
-                                style: Text.Outline
-                                styleColor: root.skyHigh
+                                text: line
+                                glyph: 9
+                                size: 17
+                                letterSpacing: 1.5
+                                before: "< "
+                                after: " >"
+                                outlined: true
                             }
                         }
                     }

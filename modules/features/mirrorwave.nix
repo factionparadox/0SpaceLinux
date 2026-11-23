@@ -1,10 +1,9 @@
 # Mirrorwave: the ship's terminal, named for the Andalite mass call.
 #
 # kitty is the engine underneath; Mirrorwave is everything on top: its own
-# name and window identity, the Andalite look, every tab title translated
-# into the script beside the English, and the mass call itself.
+# name and window identity, the Andalite look, and tab titles written
+# Andalite/English.
 #
-#   Ctrl+Alt+M   mass call: what you type goes to every Mirrorwave window
 #   Ctrl+Alt+A   full Andalite: all letters in the script
 #   Ctrl+Alt+L   back to English with the script as an accent
 #
@@ -56,7 +55,6 @@ in
         shell_integration enabled
         notify_on_cmd_finish unfocused 10.0
 
-        map ctrl+alt+m launch --allow-remote-control kitty +kitten broadcast
         map ctrl+alt+a load_config_file @dir@/full-andalite.conf
         map ctrl+alt+l load_config_file @dir@/kitty.conf
 
@@ -92,9 +90,7 @@ in
           (pkgs.writeShellScriptBin "mirrorwave" ''
             export MIRRORWAVE=1
             export KITTY_CONFIG_DIRECTORY=${configDir}
-            # One instance for every window, so a mass call reaches them all.
-            exec ${lib.getExe pkgs.kitty} --single-instance --instance-group mirrorwave \
-              --class mirrorwave "$@"
+            exec ${lib.getExe pkgs.kitty} --class mirrorwave "$@"
           '')
           desktopItem
         ];

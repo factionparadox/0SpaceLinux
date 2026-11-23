@@ -118,13 +118,11 @@ home's trees) runs through everything you see:
 
 The ship's terminal, named for the Andalite mass call. kitty is the engine
 underneath, so nothing is compiled; Mirrorwave is its own name and window,
-the Andalite look and these:
+and the Andalite look:
 
-- **Translated titles.** Every tab title is written in the script, then in
-  English. escafil does the same in Mirrorwave: a faint Andalite line above
-  each heading and each thought-speak line.
-- **Mass call** (**Ctrl+Alt+M**): what you type goes to every Mirrorwave
-  window at once. All windows share one instance so the call reaches them all.
+- **Andalite/English.** Tab titles read `<script>/bash`. escafil does the
+  same in Mirrorwave: `<script>/0-Space Linux`, `< <script>/Morph complete >`.
+  In a text console or another terminal it prints only the English.
 - **Thought-speak when work finishes**: a command that takes more than ten
   seconds tells you when it's done, if you've looked away.
 - **See-through** over the Dome.
@@ -143,8 +141,11 @@ drawn by `tools/make-script-font.py`. Every letter grows from one of eight
 forms (crescents, the tail's S-curve, a cloven hoof, a teardrop, an arch, a
 bowl, a bladed spine) and is told apart by its marks: stalk eyes, a core dot,
 a slash, a trailing tail. Capitals are taller, with a crown stroke. Anything
-written in it is English underneath, so you can learn to read it. The shell's
-labels and thought-speak use the same font.
+written in it is English underneath, so you can learn to read it.
+
+Everywhere it appears, it's a translation beside the English, written
+`<script>/English`: window names, thought-speak, Mirrorwave's tabs and
+escafil's headings.
 
 ![The script](docs/script.png)
 
@@ -192,8 +193,8 @@ Not yet tested:
 - A complete install, start to finish. The test VM couldn't reach the cache
   through the sandbox's network.
 - Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
-- The keybindings (they need real input), including the mass call and
-  Mirrorwave's English/Andalite switch.
+- The keybindings (they need real input), including Mirrorwave's
+  English/Andalite switch.
 - The boot menu, boot splash, login screen and GTK/Qt apps haven't been seen
   running yet; they build, but the test VM boots the installer, not an
   installed system.

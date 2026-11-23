@@ -14,8 +14,8 @@ FORMS="$HOST_DIR/forms.nix"
 RECORDS="${XDG_CONFIG_HOME:-$HOME/.config}/0space/records"
 SYSTEM_PROFILE=/nix/var/nix/profiles/system
 
-# In Mirrorwave, headings and thought-speak come with their Andalite
-# translation above them, in the script font. Anywhere else (a text console,
+# In Mirrorwave, headings and thought-speak are written Andalite/English,
+# the Andalite in the script font. Anywhere else (a text console,
 # another terminal) only the English is printed, since the script wouldn't
 # render there.
 DIM=$'\e[2m' PLAIN=$'\e[0m'
@@ -25,33 +25,41 @@ andalite() {   # English -> the script: letters move to where the font keeps the
         ch=${text:i:1}
         if [[ $ch == [A-Za-z] ]]; then
             printf -v code '%d' "'$ch"
+            # shellcheck disable=SC2059  # the \U escape has to be in the format
             printf -v ch "\\U$(printf '%08x' $((0x100000 + code)))"
         fi
         out+=$ch
     done
     printf '%s' "$out"
 }
-translated() { [ -n "${MIRRORWAVE:-}" ] && [ -t 1 ]; }
-heading() {
-    translated && printf '%s%s%s\n' "$DIM" "$(andalite "$1")" "$PLAIN"
-    printf '%s\n' "$1"
+# Decided once, here: inside $(...) stdout is never the terminal.
+if [ -n "${MIRRORWAVE:-}" ] && [ -t 1 ]; then TRANSLATE=1; else TRANSLATE=; fi
+translated() { [ -n "$TRANSLATE" ]; }
+bilingual() {   # "text" -> "<script>/text" in Mirrorwave, plain text elsewhere
+    if translated; then
+        printf '%s%s%s/%s' "$DIM" "$(andalite "$1")" "$PLAIN" "$1"
+    else
+        printf '%s' "$1"
+    fi
 }
+heading() { printf '%s\n' "$(bilingual "$1")"; }
 translate_headings() {   # for the order list: every unindented line is a heading
     local line
     while IFS= read -r line; do
-        if translated && [[ $line == [A-Za-z]* ]]; then
-            printf '%s%s%s\n' "$DIM" "$(andalite "$line")" "$PLAIN"
+        if [[ $line == [A-Za-z]* ]]; then
+            heading "$line"
+        else
+            printf '%s\n' "$line"
         fi
-        printf '%s\n' "$line"
     done
 }
-say() {
-    translated && printf '%s  %s%s\n' "$DIM" "$(andalite "$*")" "$PLAIN"
-    printf '< %s >\n' "$*"
-}
+say() { printf '< %s >\n' "$(bilingual "$*")"; }
 die() {
-    [ -n "${MIRRORWAVE:-}" ] && [ -t 2 ] && printf '%s  %s%s\n' "$DIM" "$(andalite "$*")" "$PLAIN" >&2
-    printf '< %s >\n' "$*" >&2
+    if [ -n "${MIRRORWAVE:-}" ] && [ -t 2 ]; then
+        printf '< %s%s%s/%s >\n' "$DIM" "$(andalite "$*")" "$PLAIN" "$*" >&2
+    else
+        printf '< %s >\n' "$*" >&2
+    fi
     exit 1
 }
 
