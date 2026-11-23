@@ -87,7 +87,7 @@ in
       boot.kernelParams = [ "quiet" "splash" "rd.udev.log_level=3" "udev.log_priority=3" ];
 
       # --- consoles and the login prompt -----------------------------------------------------
-      console.colors = consoleColours;
+      # (the console palette itself is in branding.nix, shared with the installer)
       services.greetd.settings.default_session.command = lib.mkForce (lib.concatStringsSep " " [
         (lib.getExe pkgs.tuigreet)
         "--time --remember --asterisks"

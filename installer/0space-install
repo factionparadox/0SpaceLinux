@@ -9,13 +9,20 @@
 set -euo pipefail
 
 SOURCE=/etc/0space-flake
-STYLE=(--border rounded --border-foreground 110 --padding "1 2" --margin "1 0")
+# The console carries the Andalite palette, so these are its 16 colours:
+# 0 night, 1 red, 3 fur tan, 4 fur blue, 6 dome glass, 7 text, 8 dim.
+export GUM_CONFIRM_PROMPT_FOREGROUND=3
+export GUM_CONFIRM_SELECTED_FOREGROUND=0 GUM_CONFIRM_SELECTED_BACKGROUND=6
+export GUM_CONFIRM_UNSELECTED_FOREGROUND=7 GUM_CONFIRM_UNSELECTED_BACKGROUND=8
+export GUM_CHOOSE_CURSOR_FOREGROUND=6 GUM_CHOOSE_SELECTED_FOREGROUND=6 GUM_CHOOSE_ITEM_FOREGROUND=7
+export GUM_INPUT_PROMPT_FOREGROUND=3 GUM_INPUT_CURSOR_FOREGROUND=6 GUM_INPUT_PLACEHOLDER_FOREGROUND=8
+STYLE=(--border rounded --border-foreground 4 --padding "1 2" --margin "1 0")
 
-say() { gum style --foreground 180 "< $* >"; }
-fail() { gum style --foreground 203 "< $* >"; exit 1; }
+say() { gum style --foreground 6 "< $* >"; }
+fail() { gum style --foreground 1 "< $* >"; exit 1; }
 
 clear
-gum style "${STYLE[@]}" --bold --foreground 110 \
+gum style "${STYLE[@]}" --bold --foreground 3 \
     "0-Space Linux" "" "An Andalite Dome ship, ready to be put on this machine." \
     "" "Everything on the disk you choose will be erased."
 
@@ -129,7 +136,7 @@ say "Assembling the Dome. This takes a few minutes."
 nixos-install --flake "/mnt/etc/0space#$host" --no-root-passwd --no-channel-copy
 printf '%s:%s\n' "$user" "$pass1" | nixos-enter --root /mnt -c chpasswd
 
-gum style "${STYLE[@]}" --foreground 110 \
+gum style "${STYLE[@]}" --foreground 3 \
     "< The Dome ship $host is ready. >" "" \
     "Remove the stick when the screen goes dark."
 gum confirm "Restart now?" && reboot

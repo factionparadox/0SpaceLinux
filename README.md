@@ -228,22 +228,45 @@ login, so they're yours to change.
 
 ![Lock screen](docs/themed-lock.png)
 
-## Building the ISO
+## Installing
 
-On a machine with Nix (flakes on):
+**1. Get the ISO.** GitHub builds it: open the repository's **Actions** tab,
+choose **ISO**, open the newest run that has a green tick, and download
+**0space-linux-iso** under *Artifacts* (a zip holding the ISO and its
+checksum; about 3.6 GB). To build a fresh one, press **Run workflow** on the
+same page; it takes about an hour and nothing is compiled on your machine.
 
-```
+**2. Write it to a USB stick** (8 GB or more; it will be wiped). On Windows,
+use [Rufus](https://rufus.ie): pick the ISO, and when Rufus asks how to write
+it, choose **DD image mode**. balenaEtcher works too, with no choices to make.
+
+**3. Turn off Secure Boot.** The boot menu (Limine) isn't signed. On a
+Framework, press **F2** at power-on, then *Security* → *Secure Boot* → off.
+
+**4. Boot the stick.** Press **F12** at power-on and pick the USB stick. The
+installer starts by itself:
+
+1. Connect to Wi-Fi when asked. The Dome needs a short connection to fetch
+   the parts made for your machine.
+2. Choose the disk. **Everything on it is erased**: no dual boot.
+3. Name the ship, then give your login name and password.
+4. Wait while the Dome is assembled (a few minutes), then restart and take
+   the stick out.
+
+Framework laptops get their hardware module automatically. After that,
+everything is `escafil`: `escafil scan` to look round, `escafil jump` to
+update.
+
+### Building it yourself
+
+On a machine with Nix and flakes:
+
+```sh
 nix build .#iso
 ```
 
-The ISO (about 3 GB) is in `result/iso/`. It boots straight into the
-installer, which asks for a disk, a ship's name, your name and a password.
-Almost everything installs from the stick. The few parts made for the machine's
-own hardware are fetched from the NixOS cache, so the installer connects first
-(with a Wi-Fi step if needed). It's a small download.
-
-Building the ISO compiles systemd once (the liberated version) and downloads
-the rest from the NixOS cache.
+The ISO lands in `result/iso/`. It compiles systemd once (the liberated
+version) and downloads the rest from the NixOS cache.
 
 ## Status
 
@@ -259,7 +282,10 @@ Tested, on nixos-unstable (systemd 262, Wayfire 0.10.1, Quickshell 0.3.2):
   ring floor, names in the script and thought-speak. See `docs/ring-headless-test.png`.
 - A machine set up the way the installer writes it builds with only small
   local steps, reusing the liberated systemd, and acquired forms install.
-- The ISO builds and boots into the installer.
+- The ISO builds and boots into the installer, which reaches its network
+  step. A full install hasn't been run end to end: this test machine's
+  network can't be used from inside a VM, so the first full install will be
+  on real hardware.
 - escafil and the installer pass shellcheck at its strictest level.
 
 Not yet tested:
