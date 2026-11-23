@@ -2,126 +2,140 @@
 
 > `< Dome integrity nominal. All engines report ready. >`
 
-An Andalite war-cruiser for a desktop. 0-Space is a Universal Blue (bootc)
-image built on Fedora, with:
+An Andalite war-cruiser for a desktop, built on NixOS.
 
 - **The carousel**: a Wayfire plugin of our own. Windows stand on a ring that
   runs back into the screen, seen from slightly above. The front window is full
   size; the others recede round the ring in perspective, smaller, higher and
-  dimmer with distance, and squashed side-on round the sides. Rotating spins
-  the whole carousel. There are no title bars and no window chrome.
-- **Thought-speak**: notifications float at the top of the orbit, `< like this >`.
-- **The Dome**: the biosphere you carry with you, as the background. It's a
-  full-resolution render (`tools/render-dome.py`):
-  a deep night sky with soft nebula, fine stars and two moons, the dome's glass
-  rim catching the light, layered hills fading into the distance, and the
-  red, blue and pink trees of home at the edges of the screen.
-- **The ring floor**: the carousel's ring, drawn in perspective under the
-  windows and marked in the script. Every window has its name in the script
-  and in plain letters, and corner brackets mark the front window.
-- **The script**: an invented alphabet. Every letter is a glyph of its own, so
-  the same word always looks the same. Thought-speak, window names and the
-  ring's markings are all written in it, with plain English underneath.
-- **The morph limit**: at one hour fifty minutes, the ship reminds you to demorph.
-- **Liberated systemd**: Fedora's own systemd, rebuilt without the `birthDate`
-  user-record field.
-- **escafil**: acquire and shed forms (packages). There's no Flatpak.
+  dimmer with distance, and squashed side-on round the sides. Spinning brings
+  the next one round to the front. No title bars, no window chrome.
+- **The Dome**: the biosphere you carry with you, as the background: night
+  sky, nebula, two moons, the dome's glass rim, hills in mist, and the red,
+  blue and pink trees of home (`art/dome.png`, rendered by `tools/render-dome.py`).
+- **The ring floor**: the carousel's ring in perspective under the windows,
+  marked in the script, with every window named and the front one bracketed.
+- **The script**: an invented alphabet. Thought-speak, window names and the
+  ring's markings are written in it, with plain English underneath.
+- **Thought-speak**: notifications float at the top, `< like this >`.
+- **The morph limit**: at one hour fifty minutes, the ship tells you to demorph.
+- **Idle lock**: locks after 9 minutes idle and always before sleep.
+- **Liberated systemd**: systemd without the `birthDate` user-record field.
+- **escafil**: the operator. One short command for every job.
+- No Flatpak: everything comes from nixpkgs.
+
+## escafil
+
+```
+escafil scan              kernel, generation, packages date, Wi-Fi, power, disk
+escafil doctor            scan, plus failed services and network
+escafil morph             rebuild the ship from its design and switch to it
+escafil jump              update to the newest packages, then morph
+escafil demorph           go back to the previous generation
+escafil generations       list the generations you can go back to
+escafil acquire FORM...   add packages, then morph
+escafil shed FORM...      remove packages you acquired, then morph
+escafil forms             list what you've acquired
+escafil seek TERM         search for packages
+escafil try FORM...       use packages in this shell only
+escafil run FORM [ARGS]   run a package once
+escafil shred [AGE]       clear generations older than AGE (default 14d)
+escafil record [NAME]     keep a copy of the ship's design and state
+escafil edit              open this ship's design
+escafil orders            all of the above
+```
 
 ## Controls
 
 | Keys | Order |
 |---|---|
-| Super+Left / Super+Right | Spin the carousel: the previous or next window comes round to the front |
-| Super+Tab | Stalk-eye overview: every window, evenly round the orbit |
-| Super+R | Cycle the centre's width: 33, 50, 67 or 100% |
-| Super+F | Toggle the centre between full width and 50% |
+| Super+Left / Super+Right | Spin the carousel |
+| Super+Tab | Stalk-eye overview: every window laid out flat |
+| Super+R | Cycle the front window's width: 33, 50, 67 or 100% |
+| Super+F | Toggle the front window between full width and 50% |
 | Super+Shift+F | True fullscreen |
-| Super+Q | Close the centre window |
-| Super+1 to 9 | Go to a workspace (each has its own ring) |
-| Super+Shift+1 to 9 | Take the centre window to a workspace |
+| Super+Q | Close the front window |
+| Super+1 to 9 | Go to a workspace (each has its own carousel) |
+| Super+Shift+1 to 9 | Take the front window to a workspace |
 | Super+T / Super+W | Terminal / browser |
-| Super+S | Scan the Dome (`escafil scan`) |
+| Super+S | `escafil scan` |
 | Super+Shift+S | Record a region of the screen |
 | Super+X / Super+Z | Lock / suspend |
 
 Clicking any window on the carousel spins it round to the front.
 
-## escafil
+## How it's built
+
+A dendritic flake: every file in `modules/` is a flake-parts module, picked up
+automatically by import-tree. Each feature is one file:
+
+| File | What it is |
+|---|---|
+| `modules/features/base.nix` | Boot, kernel, firmware, network, sound, the user |
+| `modules/features/liberated-systemd.nix` | systemd without `birthDate` |
+| `modules/features/carousel.nix` | The Wayfire plugin, packaged and loaded |
+| `modules/features/dome.nix` | The session: Wayfire, the shell, greetd autologin |
+| `modules/features/forms.nix` | Packages acquired with `escafil` |
+| `modules/features/escafil.nix` | The operator |
+| `modules/features/branding.nix` | What the ship calls itself |
+| `modules/flake/hosts.nix` | Every folder in `hosts/` becomes a machine |
+| `modules/flake/installer.nix` | The installer ISO |
+
+Each machine has a folder in `hosts/`: its hardware, its user, and its forms
+list. The installer writes one for the machine it installs to, and the
+installed ship keeps its design in `/etc/0space`.
+
+### Liberated systemd without rebuilds
+
+Patching systemd normally changes the identity of everything built against
+it, so Nix would rebuild a large part of the system. Instead, the system
+comes from the binary cache as usual and `system.replaceDependencies` swaps
+the patched systemd in afterwards. Only systemd itself is compiled, once per
+systemd version. The patch only removes code, so the swap is safe. (The
+initrd keeps stock systemd; it has no user records.)
+
+## Building the ISO
+
+On a machine with Nix (flakes on):
 
 ```
-escafil acquire <form>   add a package (takes effect after restart)
-escafil shed <form>      remove a package you added
-escafil forms            list what you've added
-escafil jump             fetch the newest 0-Space image
-escafil demorph          go back to the previous image
-escafil scan             report the state of the Dome
+nix build .#iso
 ```
 
-## Building
+The ISO (about 3 GB) is in `result/iso/`. It boots straight into the
+installer, which asks for a disk, a ship's name, your name and a password.
+Almost everything installs from the stick. The few parts made for the machine's
+own hardware are fetched from the NixOS cache, so the installer connects first
+(with a Wi-Fi step if needed). It's a small download.
 
-The image builds in three stages (see `Containerfile`):
-
-1. **systemd**: downloads Fedora's systemd source package, adds
-   `systemd/0space-no-birthdate.patch`, and rebuilds it. The packages are
-   marked `.0space` in their release. If Fedora's sources ever move so that
-   the patch no longer fits, the build stops and says so instead of shipping
-   systemd unpatched.
-2. **ring**: builds the Wayfire plugin against Fedora's own `wayfire-devel`,
-   so it always matches the Wayfire in the image.
-3. **image**: Universal Blue `base-main`, plus the desktop, the liberated
-   systemd and the 0-Space files.
-
-To build the image on the Framework (it compiles systemd, so don't use the EliteBook):
-
-```
-just build
-```
-
-To build an installer ISO from that image:
-
-```
-just iso
-```
-
-The systemd stage is the slow part, because it compiles all of systemd (about 25 minutes on two cores). Podman
-caches it, so later builds only redo what changed.
+Building the ISO compiles systemd once (the liberated version) and downloads
+the rest from the NixOS cache.
 
 ## Status
 
-Tested so far, on Fedora 45 (systemd 262.1, Wayfire 0.10.1):
+Tested, on nixos-unstable (systemd 262, Wayfire 0.10.1, Quickshell 0.3.2):
 
-- **systemd:** the birthDate patch applies cleanly to Fedora's systemd 262.1,
-  and the full rebuild succeeds. Fedora's stock systemd has `birthDate` in five
-  of its files; the 0-Space build has it in none.
-- **The image:** it builds on Universal Blue `base-main:45`, every systemd
-  package in it is the `.0space` build, and `bootc container lint` passes. The
-  only warning left belongs to the base image.
-- **The session:** inside the built image, the session starts headless. The
-  ring centres new windows, orbits the rest, brings a focused window to the
-  centre and keeps a separate ring per workspace. The shell draws the Dome,
-  the ring band, the brackets, the window names and thought-speak, and they all
-  follow the layout because the plugin publishes the ring's exact shape. See
-  `docs/ring-headless-test.png`, taken with Firefox and three terminals at the
-  Framework's screen proportions.
+- The flake evaluates, and the carousel plugin builds as a Nix package.
+- The full system builds. Its systemd is the liberated one: `birthDate`
+  appears in none of its files, and NixOS's stock systemd is gone from the system.
+- The built session runs: Wayfire with the carousel, the shell with the Dome,
+  ring floor, names in the script and thought-speak. See `docs/ring-headless-test.png`.
+- A machine set up the way the installer writes it builds with only small
+  local steps, reusing the liberated systemd, and acquired forms install.
+- The ISO builds and boots into the installer.
+- escafil and the installer pass shellcheck at its strictest level.
 
 Not yet tested:
 
-- Real 3D tilt. The side windows are squashed rather than turned in true
-  perspective, because Wayfire's 3D transform needs a GPU and there isn't one
-  in the test environment. That can be tried on the Framework.
+- A complete install, start to finish. The test VM couldn't reach the cache
+  through the sandbox's network.
+- Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
 - The keybindings (they need real input).
-- The ISO, and the first boot on the Framework: Wi-Fi, graphics, suspend, autologin.
+- Two other copies of stock systemd's code remain in the system's store:
+  plain `systemd` and `systemd-minimal`, which a few packages depend on. They
+  don't run the system or its logins. Swapping them too would mean two more
+  systemd compiles per systemd version.
 
 ## Art
 
-Put your art in `/usr/share/0space/art/` in the image, or in
-`~/.local/share/0space/art/` for your own copy (yours wins).
-
-- `dome.png`: the Dome background
-
-The image ships with a rendered Dome (`usr/share/0space/art/dome.png`, made by
-`tools/render-dome.py`). Your own `~/.local/share/0space/art/dome.png` takes
-priority over it. If neither exists, the shell draws a simple Dome itself.
-
-Built on Universal Blue and Fedora. The birthDate removal comes from
-[Liberated systemd](https://github.com/Jeffrey-Sardina/systemd).
+`art/dome.png` is the default Dome. Your own
+`~/.local/share/0space/art/dome.png` takes priority over it.

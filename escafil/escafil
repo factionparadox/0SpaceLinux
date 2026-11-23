@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+# escafil: the 0-Space operator.
+#
+# One short command for every job on the ship, so NixOS's own commands
+# never need typing. Every order is carried out on the ship's flake in
+# $ZEROSPACE_FLAKE (/etc/0space), for the host named after this machine.
+
+set -euo pipefail
+
+FLAKE="${ZEROSPACE_FLAKE:-/etc/0space}"
+HOST="${ZEROSPACE_HOST:-$(hostname)}"
+HOST_DIR="$FLAKE/hosts/$HOST"
+FORMS="$HOST_DIR/forms.nix"
+RECORDS="${XDG_CONFIG_HOME:-$HOME/.config}/0space/records"
+SYSTEM_PROFILE=/nix/var/nix/profiles/system
+
+say() { printf '< %s >\n' "$*"; }
+die() { printf '< %s >\n' "$*" >&2; exit 1; }
+
+prince() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+need_flake() {
+    [ -f "$FLAKE/flake.nix" ] || die "No Dome flake at $FLAKE. Set ZEROSPACE_FLAKE, aristh."
+    [ -d "$HOST_DIR" ] || die "This ship ($HOST) has no folder in $FLAKE/hosts."
+}
+
+# ------------------------------------------------------------------ the ship
+scan() {
+    echo "0-Space Linux"
+    echo "-------------"
+    printf '%-14s %s\n' "Ship:" "$HOST"
+    printf '%-14s %s\n' "Kernel:" "$(uname -r)"
+    if [ -e "$SYSTEM_PROFILE" ]; then
+        gen="$(readlink "$SYSTEM_PROFILE" | sed -n 's/.*system-\([0-9]*\)-link/\1/p')"
+        printf '%-14s %s\n' "Generation:" "${gen:-unknown}"
+    fi
+    if [ -f "$FLAKE/flake.lock" ]; then
+        stamp="$(grep -A6 '"nixpkgs": {' "$FLAKE/flake.lock" | sed -n 's/.*"lastModified": \([0-9]*\).*/\1/p' | head -n1)"
+        [ -n "$stamp" ] && printf '%-14s %s\n' "Packages from:" "$(date -d "@$stamp" '+%d %B %Y')"
+    fi
+    if command -v nmcli >/dev/null 2>&1; then
+        wifi="$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device | awk -F: '$2=="wifi"{print $3 " " $4; exit}')"
+        printf '%-14s %s\n' "Wi-Fi:" "${wifi:-not found}"
+    fi
+    if command -v upower >/dev/null 2>&1; then
+        battery="$(upower -i "$(upower -e | grep -m1 BAT)" 2>/dev/null | awk '/percentage:/{p=$2} /state:/{s=$2} END{if (p) print p " " s}')"
+        [ -n "$battery" ] && printf '%-14s %s\n' "Power:" "$battery"
+    fi
+    if command -v powerprofilesctl >/dev/null 2>&1; then
+        printf '%-14s %s\n' "Profile:" "$(powerprofilesctl get 2>/dev/null || echo unknown)"
+    fi
+    printf '%-14s %s\n' "Hull:" "$(df -h / | awk 'NR==2{print $3 " used of " $2 " (" $5 ")"}')"
+    if [ -f "$FORMS" ]; then
+        printf '%-14s %s\n' "Forms:" "$(grep -c '"' "$FORMS" || true) acquired"
+    fi
+}
+
+doctor() {
+    scan
+    echo
+    echo "== Failed services =="
+    systemctl --failed --no-legend 2>/dev/null || true
+    echo
+    echo "== Nix daemon =="
+    systemctl is-active nix-daemon 2>/dev/null || true
+    echo
+    echo "== Network =="
+    nmcli device 2>/dev/null || echo "nmcli not found"
+}
+
+# ------------------------------------------------------------------ morphing
+morph() {
+    need_flake
+    say "Morphing to the Dome's current design."
+    prince nixos-rebuild switch --flake "$FLAKE#$HOST" "$@"
+    say "Morph complete."
+}
+
+jump() {
+    need_flake
+    record "before-jump-$(date +%Y%m%d-%H%M%S)" >/dev/null
+    say "Plotting a Z-space jump to the newest packages."
+    prince nix flake update --flake "$FLAKE"
+    morph
+}
+
+demorph() {
+    say "Demorphing to your previous form."
+    prince nixos-rebuild switch --rollback
+    say "Demorph complete."
+}
+
+generations() {
+    prince nix-env --list-generations --profile "$SYSTEM_PROFILE"
+}
+
+# ------------------------------------------------------------------ forms
+forms_list() {
+    [ -f "$FORMS" ] || die "No forms file at $FORMS."
+    grep -o '"[^"]*"' "$FORMS" | tr -d '"' || true
+}
+
+form_exists() {
+    nix eval --inputs-from "$FLAKE" "nixpkgs#$1.name" >/dev/null 2>&1
+}
+
+acquire() {
+    [ "$#" -gt 0 ] || die "Acquire what, aristh? Name the form."
+    need_flake
+    for form in "$@"; do
+        form_exists "$form" || die "There is no form called $form. Try: escafil seek $form"
+        if forms_list | grep -qx "$form"; then
+            say "$form is already acquired."
+            continue
+        fi
+        prince sed -i "s|^\]|  \"$form\"\n]|" "$FORMS"
+        say "Form recorded: $form."
+    done
+    morph
+}
+
+shed() {
+    [ "$#" -gt 0 ] || die "Shed what, aristh? Name the form."
+    need_flake
+    for form in "$@"; do
+        forms_list | grep -qx "$form" || die "$form was never acquired."
+        prince sed -i "/^  \"${form//./\\.}\"$/d" "$FORMS"
+        say "Form shed: $form."
+    done
+    morph
+}
+
+seek() {
+    [ "$#" -gt 0 ] || die "Seek what, aristh?"
+    nix search --inputs-from "$FLAKE" nixpkgs "$@"
+}
+
+try() {
+    [ "$#" -gt 0 ] || die "Try which form?"
+    say "Borrowing $* for this shell only. Nothing is acquired."
+    args=()
+    for form in "$@"; do args+=("nixpkgs#$form"); done
+    nix shell --inputs-from "$FLAKE" "${args[@]}"
+}
+
+run() {
+    [ "$#" -gt 0 ] || die "Run which form?"
+    form="$1"
+    shift
+    nix run --inputs-from "$FLAKE" "nixpkgs#$form" -- "$@"
+}
+
+# ------------------------------------------------------------------ the hold
+shred() {
+    keep="${1:-14d}"
+    say "Shredding generations older than $keep and everything only they used."
+    prince nix-collect-garbage --delete-older-than "$keep"
+    nix-collect-garbage --delete-older-than "$keep" >/dev/null 2>&1 || true
+    prince nixos-rebuild boot --flake "$FLAKE#$HOST" >/dev/null
+    say "Shredding complete. The boot menu now lists only what remains."
+}
+
+record() {
+    need_flake
+    name="${1:-$(date +%Y%m%d-%H%M%S)}"
+    safe="$(printf '%s' "$name" | tr -c 'A-Za-z0-9._-' '-')"
+    dir="$RECORDS/$safe"
+    mkdir -p "$dir"
+    cp -r "$FLAKE"/. "$dir/flake" 2>/dev/null || true
+    rm -rf "$dir/flake/.git"
+    scan > "$dir/scan.txt" 2>/dev/null || true
+    readlink -f "$SYSTEM_PROFILE" > "$dir/system.txt" 2>/dev/null || true
+    say "Record written: $dir"
+}
+
+edit() {
+    need_flake
+    prince "${EDITOR:-nano}" "$HOST_DIR/default.nix"
+    say "Morph to apply your changes: escafil morph"
+}
+
+orders() {
+    cat <<'EOF'
+escafil: the 0-Space operator
+=============================
+
+The ship
+  escafil scan              Kernel, generation, packages date, Wi-Fi, power, disk.
+  escafil doctor            Scan, plus failed services, the Nix daemon and network.
+  escafil record [NAME]     Keep a copy of the ship's design and state.
+  escafil edit              Open this ship's design to change it.
+
+Morphing
+  escafil morph             Rebuild the ship from its design and switch to it.
+  escafil jump              Update to the newest packages, then morph.
+  escafil demorph           Go back to the previous generation.
+  escafil generations       List every generation you can go back to.
+
+Forms
+  escafil acquire FORM...   Add packages to the ship's design, then morph.
+  escafil shed FORM...      Remove packages you acquired, then morph.
+  escafil forms             List the forms you have acquired.
+  escafil seek TERM         Search for packages.
+  escafil try FORM...       Use packages in this shell only; nothing is kept.
+  escafil run FORM [ARGS]   Run a package once without acquiring it.
+
+The hold
+  escafil shred [AGE]       Delete generations older than AGE (default 14d) and
+                            everything only they used.
+
+Words
+  Morph       Become the ship's current design.
+  Demorph     Return to the form you had before.
+  Jump        A Z-space jump to the newest packages.
+  Forms       Packages you have acquired.
+  Shred       Clear out old generations.
+EOF
+}
+
+cmd="${1:-orders}"
+shift || true
+
+case "$cmd" in
+    scan|status) scan ;;
+    doctor) doctor ;;
+    record) record "$@" ;;
+    edit) edit ;;
+    morph|rebuild) morph "$@" ;;
+    jump|update) jump ;;
+    demorph|rollback) demorph ;;
+    generations) generations ;;
+    acquire|install) acquire "$@" ;;
+    shed|remove) shed "$@" ;;
+    forms|list) forms_list ;;
+    seek|search) seek "$@" ;;
+    try|shell) try "$@" ;;
+    run) run "$@" ;;
+    shred|gc) shred "$@" ;;
+    orders|help|-h|--help) orders ;;
+    *) die "Unknown order: $cmd. See: escafil orders" ;;
+esac

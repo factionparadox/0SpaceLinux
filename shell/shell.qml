@@ -27,7 +27,7 @@ ShellRoot {
     readonly property color treeBlue: "#4c7fd0"
     readonly property color glass: "#9fd4ff"
     readonly property string userArt: Quickshell.env("HOME") + "/.local/share/0space/art/dome.png"
-    readonly property string systemArt: "/usr/share/0space/art/dome.png"
+    readonly property string systemArt: Quickshell.env("ZEROSPACE_DOME") || "/usr/share/0space/art/dome.png"
 
     // ------------------------------------------------------------ the script
     // An invented script: every letter becomes a glyph built from arcs, a

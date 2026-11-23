@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# 0space-install: put a Dome ship on this machine.
+#
+# Runs by itself on the installer's first console. Every answer is a choice
+# or a yes/no; the only things typed are the ship's name, your name and your
+# password. The ship's packages are already on the stick; only the few parts
+# made for this machine's hardware are downloaded.
+
+set -euo pipefail
+
+SOURCE=/etc/0space-flake
+STYLE=(--border rounded --border-foreground 110 --padding "1 2" --margin "1 0")
+
+say() { gum style --foreground 180 "< $* >"; }
+fail() { gum style --foreground 203 "< $* >"; exit 1; }
+
+clear
+gum style "${STYLE[@]}" --bold --foreground 110 \
+    "0-Space Linux" "" "An Andalite Dome ship, ready to be put on this machine." \
+    "" "Everything on the disk you choose will be erased."
+
+gum confirm "Begin installation, aristh?" || exit 0
+
+# --- network -----------------------------------------------------------------------
+# Most of the ship comes off the stick, but the few parts made for this
+# machine's own hardware are fetched from the NixOS cache, so a connection is
+# needed. It is a small download.
+online() { curl -sfI --max-time 8 https://cache.nixos.org/nix-cache-info >/dev/null; }
+until online; do
+    say "The Dome needs a short connection to fetch the parts made for this machine."
+    gum confirm "Connect to Wi-Fi now?" || fail "Installation needs a connection. Run 0space-install when you have one."
+    nmtui-connect || true
+done
+
+# --- disk ----------------------------------------------------------------------
+mapfile -t disks < <(lsblk -dpno NAME,SIZE,MODEL -e 2,7,11 | sed 's/  */ /g')
+[ "${#disks[@]}" -gt 0 ] || fail "No disks found."
+say "Choose the disk to install to."
+choice="$(printf '%s\n' "${disks[@]}" | gum choose)"
+disk="${choice%% *}"
+gum confirm --default=false "Erase ALL of $choice?" || exit 0
+
+# --- names ---------------------------------------------------------------------
+host="$(gum input --placeholder "dome" --prompt "Ship's name: " --value "dome")"
+host="$(printf '%s' "${host:-dome}" | tr -c 'a-zA-Z0-9-' '-' | sed 's/-*$//')"
+user="$(gum input --placeholder "your login name" --prompt "Your name: ")"
+user="$(printf '%s' "$user" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_-' '_' | sed 's/_*$//')"
+[ -n "$user" ] || fail "A name is needed."
+while true; do
+    pass1="$(gum input --password --prompt "Password: ")"
+    pass2="$(gum input --password --prompt "Again: ")"
+    [ -n "$pass1" ] && [ "$pass1" = "$pass2" ] && break
+    say "Those did not match. Again."
+done
+
+# --- partitions ------------------------------------------------------------------
+say "Preparing $disk."
+wipefs -af "$disk" >/dev/null
+parted -s "$disk" -- mklabel gpt \
+    mkpart ESP fat32 1MiB 1GiB set 1 esp on \
+    mkpart 0space ext4 1GiB 100%
+udevadm settle
+part() { lsblk -lnpo NAME "$disk" | sed -n "$(( $1 + 1 ))p"; }
+efi="$(part 1)"
+root="$(part 2)"
+mkfs.fat -F 32 -n 0SPACE-EFI "$efi" >/dev/null
+mkfs.ext4 -qF -L 0space "$root"
+mount "$root" /mnt
+mkdir -p /mnt/boot
+mount -o umask=0077 "$efi" /mnt/boot
+
+# --- the ship's design -------------------------------------------------------------
+say "Writing the ship's design."
+mkdir -p /mnt/etc/0space
+cp -r "$SOURCE"/. /mnt/etc/0space/
+chmod -R u+w /mnt/etc/0space
+hostdir="/mnt/etc/0space/hosts/$host"
+rm -rf "$hostdir"
+mkdir -p "$hostdir"
+nixos-generate-config --root /mnt --show-hardware-config > "$hostdir/hardware.nix" 2>/dev/null
+printf "# Forms acquired with escafil acquire. One nixpkgs attribute per line.\n[\n]\n" > "$hostdir/forms.nix"
+cat > "$hostdir/default.nix" <<EOF
+# The Dome ship "$host". Change it, then: escafil morph
+{
+  imports = [ ./hardware.nix ];
+  zerospace.user = "$user";
+  zerospace.forms = import ./forms.nix;
+  system.stateVersion = "26.05";
+}
+EOF
+
+# --- install ---------------------------------------------------------------------------
+say "Assembling the Dome. This takes a few minutes."
+nixos-install --flake "/mnt/etc/0space#$host" --no-root-passwd --no-channel-copy
+printf '%s:%s\n' "$user" "$pass1" | nixos-enter --root /mnt -c chpasswd
+
+gum style "${STYLE[@]}" --foreground 110 \
+    "< The Dome ship $host is ready. >" "" \
+    "Remove the stick when the screen goes dark."
+gum confirm "Restart now?" && reboot
