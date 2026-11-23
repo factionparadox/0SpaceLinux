@@ -14,8 +14,46 @@ FORMS="$HOST_DIR/forms.nix"
 RECORDS="${XDG_CONFIG_HOME:-$HOME/.config}/0space/records"
 SYSTEM_PROFILE=/nix/var/nix/profiles/system
 
-say() { printf '< %s >\n' "$*"; }
-die() { printf '< %s >\n' "$*" >&2; exit 1; }
+# In Mirrorwave, headings and thought-speak come with their Andalite
+# translation above them, in the script font. Anywhere else (a text console,
+# another terminal) only the English is printed, since the script wouldn't
+# render there.
+DIM=$'\e[2m' PLAIN=$'\e[0m'
+andalite() {   # English -> the script: letters move to where the font keeps them
+    local text=$1 out='' ch code i
+    for ((i = 0; i < ${#text}; i++)); do
+        ch=${text:i:1}
+        if [[ $ch == [A-Za-z] ]]; then
+            printf -v code '%d' "'$ch"
+            printf -v ch "\\U$(printf '%08x' $((0x100000 + code)))"
+        fi
+        out+=$ch
+    done
+    printf '%s' "$out"
+}
+translated() { [ -n "${MIRRORWAVE:-}" ] && [ -t 1 ]; }
+heading() {
+    translated && printf '%s%s%s\n' "$DIM" "$(andalite "$1")" "$PLAIN"
+    printf '%s\n' "$1"
+}
+translate_headings() {   # for the order list: every unindented line is a heading
+    local line
+    while IFS= read -r line; do
+        if translated && [[ $line == [A-Za-z]* ]]; then
+            printf '%s%s%s\n' "$DIM" "$(andalite "$line")" "$PLAIN"
+        fi
+        printf '%s\n' "$line"
+    done
+}
+say() {
+    translated && printf '%s  %s%s\n' "$DIM" "$(andalite "$*")" "$PLAIN"
+    printf '< %s >\n' "$*"
+}
+die() {
+    [ -n "${MIRRORWAVE:-}" ] && [ -t 2 ] && printf '%s  %s%s\n' "$DIM" "$(andalite "$*")" "$PLAIN" >&2
+    printf '< %s >\n' "$*" >&2
+    exit 1
+}
 
 prince() {
     if [ "$(id -u)" -eq 0 ]; then
@@ -32,7 +70,7 @@ need_flake() {
 
 # ------------------------------------------------------------------ the ship
 scan() {
-    echo "0-Space Linux"
+    heading "0-Space Linux"
     echo "-------------"
     printf '%-14s %s\n' "Ship:" "$HOST"
     printf '%-14s %s\n' "Kernel:" "$(uname -r)"
@@ -64,13 +102,13 @@ scan() {
 doctor() {
     scan
     echo
-    echo "== Failed services =="
+    heading "Failed services"
     systemctl --failed --no-legend 2>/dev/null || true
     echo
-    echo "== Nix daemon =="
+    heading "Nix daemon"
     systemctl is-active nix-daemon 2>/dev/null || true
     echo
-    echo "== Network =="
+    heading "Network"
     nmcli device 2>/dev/null || echo "nmcli not found"
 }
 
@@ -186,7 +224,7 @@ edit() {
 }
 
 orders() {
-    cat <<'EOF'
+    translate_headings <<'EOF'
 escafil: the 0-Space operator
 =============================
 

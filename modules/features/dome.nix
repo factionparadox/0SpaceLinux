@@ -39,7 +39,7 @@
       environment.systemPackages = with pkgs; [
         session
         quickshell
-        kitty
+        # (the terminal is Mirrorwave, in mirrorwave.nix)
         swaylock
         swayidle
         grim

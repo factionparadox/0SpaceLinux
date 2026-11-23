@@ -8,6 +8,10 @@ trailing tail. Everything leans forward. Capitals are the same letter drawn
 taller with a crown stroke. Only letters are covered: digits and
 symbols fall back to the terminal's normal font, so numbers stay readable.
 
+The letters are at their usual code points (for the shell, which writes
+English in this font) and again at U+100000 + the letter, so a terminal can
+map just that range to the script and show it beside ordinary English.
+
 The cell matches Maple Mono (600 wide, 1000 units per em) so it sits on the
 terminal grid exactly.
 
@@ -69,7 +73,8 @@ DOTS = {                       # (x, y, radius) as fractions of the box
     "eyes": [(0.26, 1.34, 0.08), (0.74, 1.34, 0.08)],   # stalk eyes, the pair
     "core": [(0.5, 0.48, 0.085)],
 }
-SLANT = 0.16                   # forward lean, like a fast hand
+SLANT = 0.16
+PUA = 0x100000                 # where the second copy of the letters lives                   # forward lean, like a fast hand
 
 LETTERS = {
     "a": ("crescL", "core"),  "c": ("crescL", "eye"),   "q": ("crescL", "under"),
@@ -135,6 +140,10 @@ def main():
         glyphs[ch.upper()] = draw(outline(parts, UPPER_H, True))
         cmap[ord(ch)] = ch
         cmap[ord(ch.upper())] = ch.upper()
+        # A second copy in Private Use Area-B, so a terminal can show the
+        # script beside English: Mirrorwave maps only this range to the font.
+        cmap[PUA + ord(ch)] = ch
+        cmap[PUA + ord(ch.upper())] = ch.upper()
         order += [ch, ch.upper()]
 
     fb = FontBuilder(1000, isTTF=True)

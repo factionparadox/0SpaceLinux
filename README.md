@@ -77,6 +77,7 @@ automatically by import-tree. Each feature is one file:
 | `modules/features/forms.nix` | Packages acquired with `escafil` |
 | `modules/features/escafil.nix` | The operator |
 | `modules/features/branding.nix` | What the ship calls itself |
+| `modules/features/mirrorwave.nix` | Mirrorwave, the terminal |
 | `modules/features/theme.nix` | Everything else's look: boot menu, splash, consoles, login, apps, lock |
 | `modules/flake/hosts.nix` | Every folder in `hosts/` becomes a machine |
 | `modules/flake/installer.nix` | The installer ISO |
@@ -108,10 +109,32 @@ home's trees) runs through everything you see:
 | Boot splash | Plymouth: the Dome, the title, `< Dome integrity nominal >`, lights orbiting as a carousel; the disk password prompt is thought-speak |
 | Consoles | The palette on every text console |
 | Login | tuigreet: `< Welcome back to the Dome >` (only when autologin is off or you log out) |
-| Terminal | kitty, see-through over the Dome, letters in the Andalite script (numbers and symbols stay readable). **Ctrl+Alt+L** switches to English, **Ctrl+Alt+A** back |
+| Terminal | Mirrorwave (below) |
 | Apps | GTK 3 and 4 dark (adw-gtk3/libadwaita) recoloured with the palette, Qt to match, Papirus icons, Bibata cursor |
 | Firefox | Dark, no welcome pages, no telemetry |
 | Lock | swaylock over the Dome with a fur-blue ring |
+
+## Mirrorwave
+
+The ship's terminal, named for the Andalite mass call. kitty is the engine
+underneath, so nothing is compiled; Mirrorwave is its own name and window,
+the Andalite look and these:
+
+- **Translated titles.** Every tab title is written in the script, then in
+  English. escafil does the same in Mirrorwave: a faint Andalite line above
+  each heading and each thought-speak line.
+- **Mass call** (**Ctrl+Alt+M**): what you type goes to every Mirrorwave
+  window at once. All windows share one instance so the call reaches them all.
+- **Thought-speak when work finishes**: a command that takes more than ten
+  seconds tells you when it's done, if you've looked away.
+- **See-through** over the Dome.
+- **Full Andalite** (**Ctrl+Alt+A**): every letter in the script.
+  **Ctrl+Alt+L** returns to English.
+
+Your own settings go in `~/.config/mirrorwave/mirrorwave.conf` (kitty's
+format).
+
+![Mirrorwave](docs/mirrorwave.png)
 
 ### The script
 
@@ -128,7 +151,6 @@ labels and thought-speak use the same font.
 The GTK colours are copied to `~/.config/gtk-3.0` and `gtk-4.0` on first
 login, so they're yours to change.
 
-![Themed terminal](docs/themed-terminal.png)
 ![Lock screen](docs/themed-lock.png)
 
 ## Building the ISO
@@ -156,7 +178,8 @@ Tested, on nixos-unstable (systemd 262, Wayfire 0.10.1, Quickshell 0.3.2):
 - The full system builds. Both PID 1s (initrd and system) are the liberated
   systemd: `birthDate` appears in neither, and NixOS's stock systemd is gone
   from the system.
-- The theme: kitty and swaylock checked in the running session (screenshots above).
+- The theme: Mirrorwave (translated tab titles, escafil's translated
+  headings) and swaylock checked in the running session (screenshots above).
 - The built session runs: Wayfire with the carousel, the shell with the Dome,
   ring floor, names in the script and thought-speak. See `docs/ring-headless-test.png`.
 - A machine set up the way the installer writes it builds with only small
@@ -169,7 +192,8 @@ Not yet tested:
 - A complete install, start to finish. The test VM couldn't reach the cache
   through the sandbox's network.
 - Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
-- The keybindings (they need real input).
+- The keybindings (they need real input), including the mass call and
+  Mirrorwave's English/Andalite switch.
 - The boot menu, boot splash, login screen and GTK/Qt apps haven't been seen
   running yet; they build, but the test VM boots the installer, not an
   installed system.
