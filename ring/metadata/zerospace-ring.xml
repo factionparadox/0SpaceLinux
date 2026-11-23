@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<wayfire>
+	<plugin name="zerospace-ring">
+		<_short>0-Space ring</_short>
+		<_long>One window holds the centre; the rest orbit it in Z-space.</_long>
+		<category>Window Management</category>
+		<option name="rotate_left" type="activator">
+			<_short>Rotate ring left</_short>
+			<_long>Bring the previous window in the orbit to the centre.</_long>
+			<default>&lt;super&gt; KEY_LEFT</default>
+		</option>
+		<option name="rotate_right" type="activator">
+			<_short>Rotate ring right</_short>
+			<_long>Bring the next window in the orbit to the centre.</_long>
+			<default>&lt;super&gt; KEY_RIGHT</default>
+		</option>
+		<option name="overview" type="activator">
+			<_short>Stalk-eye overview</_short>
+			<_long>Spread every window evenly round the full orbit.</_long>
+			<default>&lt;super&gt; KEY_TAB</default>
+		</option>
+		<option name="cycle_width" type="activator">
+			<_short>Cycle centre width</_short>
+			<_long>Cycle the centre window through 33, 50, 67 and 100 percent of the screen.</_long>
+			<default>&lt;super&gt; KEY_R</default>
+		</option>
+		<option name="maximize" type="activator">
+			<_short>Toggle full centre</_short>
+			<_long>Toggle the centre window between full width and 50 percent.</_long>
+			<default>&lt;super&gt; KEY_F</default>
+		</option>
+		<option name="tile_width" type="double">
+			<_short>Tile width</_short>
+			<_long>Width of an orbiting tile, as a fraction of the screen width.</_long>
+			<default>0.12</default>
+			<min>0.05</min>
+			<max>0.4</max>
+			<precision>0.01</precision>
+		</option>
+		<option name="overview_width" type="double">
+			<_short>Overview tile width</_short>
+			<_long>Width of each window in the stalk-eye overview, as a fraction of the screen width.</_long>
+			<default>0.24</default>
+			<min>0.05</min>
+			<max>0.5</max>
+			<precision>0.01</precision>
+		</option>
+		<option name="centre_height" type="double">
+			<_short>Centre height</_short>
+			<_long>Height of the centre window, as a fraction of the screen height.</_long>
+			<default>0.52</default>
+			<min>0.3</min>
+			<max>1.0</max>
+			<precision>0.01</precision>
+		</option>
+		<option name="gap" type="int">
+			<_short>Gap</_short>
+			<_long>Space in pixels kept between windows and the screen edge.</_long>
+			<default>16</default>
+			<min>0</min>
+		</option>
+	</plugin>
+</wayfire>
