@@ -33,60 +33,17 @@ ShellRoot {
     // An invented script: every letter becomes a glyph built from arcs, a
     // stem, hooks and a dot, chosen by the letter's code, so the same word
     // always looks the same. Spaces stay spaces.
-    function drawGlyph(ctx, code, x, y, s) {
-        const b = (code * 2654435761) >>> 0;       // spread the bits
-        ctx.beginPath();
-        if (b & 1) { ctx.moveTo(x, y + s * 0.35); ctx.arc(x + s * 0.5, y + s * 0.35, s * 0.5, Math.PI, 0); }
-        if (b & 2) { ctx.moveTo(x + s, y + s * 0.65); ctx.arc(x + s * 0.5, y + s * 0.65, s * 0.5, 0, Math.PI); }
-        if (b & 4) { ctx.moveTo(x + s * 0.5, y - s * 0.15); ctx.lineTo(x + s * 0.5, y + s * 1.15); }
-        if (b & 8) { ctx.moveTo(x + s * 0.5, y + s * 1.15); ctx.quadraticCurveTo(x + s * 0.1, y + s * 1.25, x, y + s * 0.9); }
-        if (b & 16) { ctx.moveTo(x + s * 0.5, y - s * 0.15); ctx.quadraticCurveTo(x + s * 0.95, y - s * 0.3, x + s, y + s * 0.1); }
-        if (b & 32) { ctx.moveTo(x, y + s * 0.5); ctx.lineTo(x + s, y + s * 0.5); }
-        if (!(b & 39)) { ctx.moveTo(x, y); ctx.arc(x + s * 0.5, y + s * 0.5, s * 0.5, Math.PI, Math.PI * 3); }
-        ctx.stroke();
-        if (b & 64) {
-            ctx.beginPath();
-            ctx.arc(x + s * 0.5, y - s * 0.4, s * 0.09, 0, Math.PI * 2);
-            ctx.fill();
-        }
-    }
+    // The Andalite script is a real font (art/0space-script.ttf, built by
+    // tools/make-script-font.py): write English in it and it comes out alien.
+    readonly property string scriptFont: "0-Space Script"
 
-    function drawScript(ctx, text, x, y, s) {
-        let cx = x;
-        for (let i = 0; i < text.length; i++) {
-            const c = text.charCodeAt(i);
-            if (c === 32) { cx += s * 0.9; continue; }
-            drawGlyph(ctx, c, cx, y, s);
-            cx += s * 1.35;
-        }
-        return cx - x;
-    }
-
-    function scriptWidth(text, s) {
-        let w = 0;
-        for (let i = 0; i < text.length; i++)
-            w += text.charCodeAt(i) === 32 ? s * 0.9 : s * 1.35;
-        return w;
-    }
-
-    component Script: Canvas {
-        id: scriptCanvas
-        property string text: ""
-        property real glyph: 10
+    component Script: Text {
+        property real glyph: 10           // height of the letter body, in pixels
         property color ink: root.furTan
-        implicitWidth: root.scriptWidth(text, glyph) + glyph
-        implicitHeight: glyph * 2.2
-        onTextChanged: requestPaint()
-        onInkChanged: requestPaint()
-        onPaint: {
-            const ctx = getContext("2d");
-            ctx.reset();
-            ctx.strokeStyle = ink;
-            ctx.fillStyle = ink;
-            ctx.lineWidth = Math.max(1, glyph * 0.13);
-            ctx.lineCap = "round";
-            root.drawScript(ctx, text, glyph * 0.5, glyph * 0.6, glyph);
-        }
+        color: ink
+        font.family: root.scriptFont
+        font.pixelSize: Math.round(glyph / 0.54)
+        renderType: Text.NativeRendering
     }
 
     // ------------------------------------------------------------ thought-speak
@@ -366,14 +323,15 @@ ShellRoot {
                             const iy = cy + (ry + band / 2 + (i % 6 === 0 ? 10 : 5)) * Math.sin(a);
                             ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ix, iy); ctx.stroke();
                         }
-                        ctx.lineWidth = 1.2;
+                        ctx.fillStyle = ctx.strokeStyle;
+                        ctx.font = "19px '" + root.scriptFont + "'";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
                         for (let i = 0; i < words.length; i++) {
                             const a = wordAngles[i] * Math.PI / 180;
                             const px = cx + (rx + band / 2 + 26) * Math.cos(a);
                             const py = cy + (ry + band / 2 + 22) * Math.sin(a);
-                            const word = words[i];
-                            const s = 7;
-                            root.drawScript(ctx, word, px - root.scriptWidth(word, s) / 2, py - s / 2, s);
+                            ctx.fillText(words[i], px, py);
                         }
                         ctx.globalAlpha = 1;
                     }

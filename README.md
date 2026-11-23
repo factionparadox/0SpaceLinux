@@ -108,10 +108,22 @@ home's trees) runs through everything you see:
 | Boot splash | Plymouth: the Dome, the title, `< Dome integrity nominal >`, lights orbiting as a carousel; the disk password prompt is thought-speak |
 | Consoles | The palette on every text console |
 | Login | tuigreet: `< Welcome back to the Dome >` (only when autologin is off or you log out) |
-| Terminal | kitty in navy glass, Maple Mono, the palette |
+| Terminal | kitty, see-through over the Dome, letters in the Andalite script (numbers and symbols stay readable). **Ctrl+Alt+L** switches to English, **Ctrl+Alt+A** back |
 | Apps | GTK 3 and 4 dark (adw-gtk3/libadwaita) recoloured with the palette, Qt to match, Papirus icons, Bibata cursor |
 | Firefox | Dark, no welcome pages, no telemetry |
 | Lock | swaylock over the Dome with a fur-blue ring |
+
+### The script
+
+The Andalite script is a real font, `0-Space Script` (`art/0space-script.ttf`),
+drawn by `tools/make-script-font.py`. Every letter grows from one of eight
+forms (crescents, the tail's S-curve, a cloven hoof, a teardrop, an arch, a
+bowl, a bladed spine) and is told apart by its marks: stalk eyes, a core dot,
+a slash, a trailing tail. Capitals are taller, with a crown stroke. Anything
+written in it is English underneath, so you can learn to read it. The shell's
+labels and thought-speak use the same font.
+
+![The script](docs/script.png)
 
 The GTK colours are copied to `~/.config/gtk-3.0` and `gtk-4.0` on first
 login, so they're yours to change.

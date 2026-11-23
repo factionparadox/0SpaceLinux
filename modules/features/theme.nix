@@ -69,10 +69,20 @@ in
 
       gtkCssFile = pkgs.writeText "0space-gtk.css" gtkCss;
 
-      kittyConf = pkgs.writeText "kitty.conf" ''
+      # The Andalite script, as a font (built by tools/make-script-font.py).
+      scriptFont = pkgs.runCommand "0space-script-font" { } ''
+        install -Dm444 ${../../art/0space-script.ttf} $out/share/fonts/truetype/0space-script.ttf
+      '';
+
+      # kitty: Andalite by default, English on demand.
+      #   Ctrl+Alt+A  letters in the Andalite script
+      #   Ctrl+Alt+L  letters in English
+      # Only letters change; numbers and symbols stay readable either way.
+      kittyBase = pkgs.writeText "0space-kitty-base.conf" ''
         font_family Maple Mono NF
         font_size 11.5
-        background_opacity 0.92
+        background_opacity 0.72
+        dynamic_background_opacity yes
         window_padding_width 10
         cursor_shape beam
         cursor #${c.glass}
@@ -88,6 +98,15 @@ in
         inactive_tab_foreground #${c.text}
         inactive_tab_background #${c.panel}
         ${lib.concatImapStrings (i: col: "color${toString (i - 1)} #${col}\n") consoleColours}
+        map ctrl+alt+a load_config_file /etc/xdg/kitty/kitty.conf
+        map ctrl+alt+l load_config_file /etc/xdg/kitty/english.conf
+      '';
+      kittyConf = pkgs.writeText "kitty.conf" ''
+        include ${kittyBase}
+        symbol_map U+0041-U+005A,U+0061-U+007A 0-Space Script
+      '';
+      kittyEnglish = pkgs.writeText "kitty-english.conf" ''
+        include ${kittyBase}
       '';
     in
     {
@@ -139,7 +158,7 @@ in
         adwaita-qt
         adwaita-qt6
       ];
-      fonts.packages = with pkgs; [ maple-mono.NF ];
+      fonts.packages = [ pkgs.maple-mono.NF scriptFont ];
       fonts.fontconfig.defaultFonts = {
         sansSerif = [ "Noto Sans" ];
         monospace = [ "Maple Mono NF" ];
@@ -178,6 +197,7 @@ in
         '';
         "0space/gtk.css".source = gtkCssFile;
         "xdg/kitty/kitty.conf".source = kittyConf;
+        "xdg/kitty/english.conf".source = kittyEnglish;
         "swaylock/config".text = ''
           image=${../../art/dome.png}
           scaling=fill
