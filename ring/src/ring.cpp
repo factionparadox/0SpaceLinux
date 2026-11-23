@@ -29,6 +29,11 @@
 #include <wayfire/bindings.hpp>
 #include <set>
 
+#include <wayland-server-core.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
@@ -200,6 +205,113 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         }
     }
 
+    // Workstations (1-based) that hold at least one window.
+    std::string occupied_list()
+    {
+        std::set<int> used;
+        auto wset = output->wset();
+        for (auto& view : wset->get_views(wf::WSET_MAPPED_ONLY))
+        {
+            if (view->role == wf::VIEW_ROLE_TOPLEVEL)
+            {
+                used.insert(wset->get_view_main_workspace(view).x + 1);
+            }
+        }
+
+        std::string list;
+        for (int ws : used)
+        {
+            list += (list.empty() ? "" : ",") + std::to_string(ws);
+        }
+
+        return list;
+    }
+
+    // Orders from the shell, one per line, through a pipe beside the JSON:
+    //   workspace N   go to workstation N
+    std::string control_path;
+    int control_fd = -1;
+    wl_event_source *control_source = nullptr;
+    std::string control_buffer;
+
+    static int on_control_readable(int fd, uint32_t, void *data)
+    {
+        auto self = static_cast<zerospace_ring_t*>(data);
+        char buf[256];
+        ssize_t n;
+        while ((n = read(fd, buf, sizeof(buf))) > 0)
+        {
+            self->control_buffer.append(buf, n);
+        }
+
+        size_t nl;
+        while ((nl = self->control_buffer.find('\n')) != std::string::npos)
+        {
+            self->run_order(self->control_buffer.substr(0, nl));
+            self->control_buffer.erase(0, nl + 1);
+        }
+
+        return 0;
+    }
+
+    void run_order(const std::string& line)
+    {
+        int n = 0;
+        if (std::sscanf(line.c_str(), "workspace %d", &n) == 1)
+        {
+            auto wset = output->wset();
+            const auto grid = wset->get_workspace_grid_size();
+            if ((n >= 1) && (n <= grid.width))
+            {
+                wset->request_workspace({n - 1, wset->get_current_workspace().y});
+            }
+        }
+    }
+
+    void open_control()
+    {
+        const char *runtime = std::getenv("XDG_RUNTIME_DIR");
+        if (!runtime)
+        {
+            return;
+        }
+
+        control_path = std::string(runtime) + "/0space-ring-" + output->to_string() + ".ctl";
+        ::unlink(control_path.c_str());
+        if (::mkfifo(control_path.c_str(), 0600) != 0)
+        {
+            return;
+        }
+
+        // Read-write, so the pipe never reports end-of-file between writers.
+        control_fd = ::open(control_path.c_str(), O_RDWR | O_NONBLOCK | O_CLOEXEC);
+        if (control_fd >= 0)
+        {
+            control_source = wl_event_loop_add_fd(wf::get_core().ev_loop, control_fd,
+                WL_EVENT_READABLE, on_control_readable, this);
+        }
+    }
+
+    void close_control()
+    {
+        if (control_source)
+        {
+            wl_event_source_remove(control_source);
+            control_source = nullptr;
+        }
+
+        if (control_fd >= 0)
+        {
+            ::close(control_fd);
+            control_fd = -1;
+        }
+
+        if (!control_path.empty())
+        {
+            ::unlink(control_path.c_str());
+        }
+    }
+
     // Tell the shell where the ring is, so it can draw the orbit and the
     // frame round the centre. Written atomically to $XDG_RUNTIME_DIR.
     void publish(bool active, wf::geometry_t centre, double cx, double cy, double rx, double ry,
@@ -225,6 +337,9 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
                 << ",\"full\":" << (full ? "true" : "false")
                 << ",\"centre\":[" << centre.x << "," << centre.y << "," << centre.width << "," << centre.height << "]"
                 << ",\"orbit\":[" << cx << "," << cy << "," << rx << "," << ry << "]"
+                << ",\"workspace\":" << output->wset()->get_current_workspace().x + 1
+                << ",\"workspaces\":" << output->wset()->get_workspace_grid_size().width
+                << ",\"occupied\":[" << occupied_list() << "]"
                 << ",\"tiles\":[";
             for (size_t i = 0; i < published_tiles.size(); i++)
             {
@@ -692,6 +807,7 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         output->connect(&on_minimized);
         output->connect(&on_workspace_changed);
         wf::get_core().connect(&on_focus);
+        open_control();
 
         // Adopt windows that were already open when the plugin loaded.
         for (auto& view : output->wset()->get_views(wf::WSET_MAPPED_ONLY | wf::WSET_EXCLUDE_MINIMIZED))
@@ -730,6 +846,7 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
 
         ring.clear();
         floating.clear();
+        close_control();
     }
 };
 

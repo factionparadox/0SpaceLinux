@@ -21,6 +21,20 @@
         export QT_QPA_PLATFORM=wayland
         export QS_ICON_THEME=Papirus-Dark
         export ZEROSPACE_DOME=${art}/dome.png
+        export ZEROSPACE_ART=${art}
+        export ZEROSPACE_GLASS=${art}/dome-glass.png
+
+        # A Dome of your own gets frosted for the shell's glass pills (once,
+        # and again whenever you change it).
+        user_dome="$HOME/.local/share/0space/art/dome.png"
+        user_glass="$HOME/.cache/0space/dome-glass.png"
+        if [ -f "$user_dome" ]; then
+          if [ ! -f "$user_glass" ] || [ "$user_dome" -nt "$user_glass" ]; then
+            mkdir -p "''${user_glass%/*}"
+            ${pkgs.imagemagick}/bin/magick "$user_dome" -resize 50% -blur 0x18 "$user_glass" || true
+          fi
+          [ -f "$user_glass" ] && export ZEROSPACE_GLASS="$user_glass"
+        fi
 
         # First login: give GTK apps the Andalite colours (yours to change after).
         for v in gtk-3.0 gtk-4.0; do

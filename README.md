@@ -68,6 +68,7 @@ escafil orders            all of the above
 | Super+A | ani-cli, in Mirrorwave |
 | Super+P | Proton VPN |
 | Super+S | `escafil scan` |
+| Super+B | Keep the corners out, or let them tuck away again |
 
 **Windows**
 
@@ -94,6 +95,29 @@ Clicking any window on the carousel spins it round to the front.
 | Brightness up / down | The same, for the screen |
 
 ![The launcher](docs/launcher.png)
+
+## The corners
+
+No bar: glass pills in the corners of the screen, frosted over the Dome,
+with a soft fur-blue glow.
+
+| Corner | Pills |
+|---|---|
+| Top left | Workstations (the current one a glowing capsule, ones with windows a filled dot; click or scroll to go) and the front window's name |
+| Top right | The day, as `<script>/Monday`, the date and the time |
+| Bottom right | Battery, sound (click to mute, scroll for volume), network (click for `nmtui`) and the tray (left click opens, right click for the menu) |
+
+They stay out while the workstation is empty and in the overview. Once a
+window is open they tuck away; touch a corner with the pointer to bring
+that corner back, or Super+B to keep them all out. Changing workstation
+shows the top-left corner for a moment, and a low battery keeps the
+bottom-right one out.
+
+The glass is the Dome itself, blurred: `art/dome-glass.png`, made by
+`tools/render-glass.py`. A Dome of your own is frosted the same way when you
+log in. Mirrorwave's see-through windows get Wayfire's real blur behind them.
+
+![The corners](docs/corners.png)
 
 ## How it's built
 
@@ -226,6 +250,13 @@ Not yet tested:
 - A complete install, start to finish. The test VM couldn't reach the cache
   through the sandbox's network.
 - Real hardware: the Framework's Wi-Fi, graphics, suspend and the idle lock.
+- The corners: shown on an empty workstation, tucked away when a window
+  opens, the top left peeking on a workstation change, switching
+  workstation through the carousel's pipe, and a tray icon (nm-applet)
+  appearing in its pill, all checked in the test session. Hovering a corner
+  and the tray's menus need real input; the battery pill needs a battery.
+- Wayfire's blur behind Mirrorwave needs a GPU (the test session has none;
+  Wayfire skips the plugin there and carries on).
 - The keybindings (they need real input), including floating and Super+drag,
   the media keys and Mirrorwave's English/Andalite switch. The launcher and
   the level gauge were opened from the command line in the test session.

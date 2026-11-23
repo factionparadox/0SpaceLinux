@@ -12,6 +12,9 @@ import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import Quickshell.Io
 import Quickshell.Widgets
+import Quickshell.Services.SystemTray
+import Quickshell.Services.UPower
+import Quickshell.Services.Pipewire
 
 ShellRoot {
     id: root
@@ -72,6 +75,253 @@ ShellRoot {
             anchors.verticalCenter: parent.verticalCenter
         }
         TranslatedPlain { row: tr; text: "/" + (tr.upper ? tr.text.toUpperCase() : tr.text) + tr.after }
+    }
+
+    // ------------------------------------------------------------ corners
+    // Glass pills in the corners of each screen: workstations top left, the
+    // time top right, the tray, network, sound and battery bottom right. They
+    // tuck away while you work and come back when the pointer touches their
+    // corner, when the workstation is empty, in the overview, or on Super+B.
+    readonly property string artDir: Quickshell.env("ZEROSPACE_ART") || "/usr/share/0space/art"
+    // The Dome, frosted: each pill shows the patch of it that lies behind it.
+    readonly property string glassArt: "file://" + (Quickshell.env("ZEROSPACE_GLASS") || artDir + "/dome-glass.png")
+    property bool cornersPinned: false
+
+    IpcHandler {
+        target: "corners"
+        function toggle(): void { root.cornersPinned = !root.cornersPinned }
+    }
+
+    component Pill: Item {
+        id: pill
+        default property alias content: inner.data
+        property var corner: null       // the Corner it sits in, to line up the glass
+        property bool lit: false        // glowing: the current workstation, a warning
+        property color edgeColour: root.glass
+        property int pad: 13
+        signal clicked(var mouse)
+        signal scrolled(var wheel)
+
+        implicitHeight: 34
+        implicitWidth: inner.implicitWidth + pad * 2
+
+        BorderImage {
+            anchors.fill: parent
+            anchors.margins: -36
+            source: "file://" + root.artDir + "/shadow.png"
+            border { left: 40; right: 40; top: 40; bottom: 40 }
+        }
+
+        BorderImage {
+            anchors.fill: parent
+            anchors.margins: -36
+            source: "file://" + root.artDir + "/glow.png"
+            border { left: 40; right: 40; top: 40; bottom: 40 }
+            opacity: pill.lit ? 1 : (hover.hovered ? 0.75 : 0.22)
+            Behavior on opacity { NumberAnimation { duration: 200 } }
+        }
+
+        Canvas {
+            id: glassPane
+            anchors.fill: parent
+            property size art: Qt.size(0, 0)
+            // Where the pill is on the screen, re-read whenever it moves.
+            property point at: {
+                pill.x; pill.y; pill.width; pill.parent ? pill.parent.x + pill.parent.y : 0;
+                return pill.corner ? pill.mapToItem(pill.corner.contentItem, 0, 0) : Qt.point(0, 0);
+            }
+            onAtChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            Component.onCompleted: loadImage(root.glassArt)
+            onImageLoaded: {
+                const d = getContext("2d").createImageData(root.glassArt);
+                art = Qt.size(d.width, d.height);
+                requestPaint();
+            }
+
+            onPaint: {
+                const ctx = getContext("2d");
+                ctx.reset();
+                const r = height / 2;
+                ctx.beginPath();
+                ctx.roundedRect(0.5, 0.5, width - 1, height - 1, r, r);
+                ctx.closePath();
+                ctx.save();
+                ctx.clip();
+                const c = pill.corner;
+                if (c && art.width > 0 && isImageLoaded(root.glassArt)) {
+                    // The Dome is drawn cover-fit; find this pill's patch of it.
+                    const sw = c.screen.width, sh = c.screen.height;
+                    const k = Math.max(sw / art.width, sh / art.height);
+                    const ox = (sw - art.width * k) / 2, oy = (sh - art.height * k) / 2;
+                    const sx = c.screenX + at.x, sy = c.screenY + at.y;
+                    ctx.drawImage(root.glassArt, (sx - ox) / k, (sy - oy) / k, width / k, height / k,
+                                  0, 0, width, height);
+                }
+                ctx.fillStyle = "rgba(9, 20, 44, 0.46)";
+                ctx.fillRect(0, 0, width, height);
+                const sheen = ctx.createLinearGradient(0, 0, 0, height);
+                sheen.addColorStop(0, "rgba(159, 212, 255, 0.16)");
+                sheen.addColorStop(0.55, "rgba(159, 212, 255, 0)");
+                ctx.fillStyle = sheen;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = Qt.rgba(pill.edgeColour.r, pill.edgeColour.g, pill.edgeColour.b,
+                                          pill.lit ? 0.8 : 0.26);
+                ctx.stroke();
+            }
+        }
+
+        Connections {
+            target: pill
+            function onLitChanged() { glassPane.requestPaint() }
+            function onEdgeColourChanged() { glassPane.requestPaint() }
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+            cursorShape: Qt.PointingHandCursor
+            onClicked: mouse => pill.clicked(mouse)
+            onWheel: wheel => pill.scrolled(wheel)
+        }
+
+        HoverHandler { id: hover }
+
+        Row {
+            id: inner
+            anchors.centerIn: parent
+            spacing: 8
+        }
+    }
+
+    component Corner: PanelWindow {
+        id: cw
+        property bool atTop: true
+        property bool atLeft: true
+        property bool keep: false       // stay out: empty workstation, overview, pinned
+        property bool peeking: false
+        readonly property bool shown: keep || peeking || over.hovered
+        property real slide: shown ? 0 : 1
+        Behavior on slide { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+        default property alias pills: holder.data
+        readonly property int edge: 14  // gap to the screen edge
+        readonly property int room: 40  // space for the glow and shadow
+        readonly property real screenX: atLeft ? 0 : screen.width - width
+        readonly property real screenY: atTop ? 0 : screen.height - height
+
+        function peek(ms) {
+            peeking = true;
+            hideTimer.interval = ms || 1200;
+            hideTimer.restart();
+        }
+
+        color: "transparent"
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Top
+        WlrLayershell.namespace: "0space-corner"
+        anchors { top: cw.atTop; bottom: !cw.atTop; left: cw.atLeft; right: !cw.atLeft }
+        implicitWidth: holder.implicitWidth + edge + room
+        implicitHeight: holder.implicitHeight + edge + room
+        // Hidden, only a small hot corner takes the pointer; the rest of the
+        // screen corner stays clickable.
+        mask: Region { item: cw.shown ? holder : hot }
+
+        Timer { id: hideTimer; onTriggered: cw.peeking = false }
+
+        Item {
+            id: hot
+            width: 18
+            height: 18
+            x: cw.atLeft ? 0 : parent.width - width
+            y: cw.atTop ? 0 : parent.height - height
+            HoverHandler { onHoveredChanged: if (hovered) cw.peek(1500) }
+        }
+
+        Row {
+            id: holder
+            spacing: 10
+            layoutDirection: cw.atLeft ? Qt.LeftToRight : Qt.RightToLeft
+            x: (cw.atLeft ? cw.edge : cw.room) + (cw.atLeft ? -1 : 1) * cw.slide * (implicitWidth + cw.edge + 12)
+            y: cw.atTop ? cw.edge : cw.room
+            opacity: 1 - cw.slide * 0.8
+            HoverHandler {
+                id: over
+                onHoveredChanged: if (!hovered) cw.peek(900)
+            }
+        }
+    }
+
+    // What the corners report.
+    SystemClock { id: clock; precision: SystemClock.Minutes }
+
+    readonly property var battery: UPower.displayDevice
+    readonly property bool hasBattery: !!battery && battery.isLaptopBattery
+    readonly property int batteryPercent: !hasBattery ? 0
+        : Math.round(battery.percentage <= 1 ? battery.percentage * 100 : battery.percentage)
+    readonly property bool charging: hasBattery && (battery.state === UPowerDeviceState.Charging
+                                                    || battery.state === UPowerDeviceState.FullyCharged)
+    readonly property bool batteryLow: hasBattery && !charging && batteryPercent <= 15
+
+    PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
+    readonly property var sink: Pipewire.defaultAudioSink
+    readonly property int soundPercent: sink && sink.audio ? Math.round(sink.audio.volume * 100) : 0
+    readonly property bool soundMuted: !!sink && !!sink.audio && sink.audio.muted
+
+    // Network, from NetworkManager every ten seconds.
+    property string netKind: "none"     // wifi, ethernet or none
+    property string netName: ""
+    property int netSignal: 0
+    Process {
+        id: netProbe
+        command: ["sh", "-c",
+            "nmcli -t -f TYPE,STATE,CONNECTION device 2>/dev/null | awk -F: '$2==\"connected\" && ($1==\"wifi\" || $1==\"ethernet\") { print $1; print $3; exit }';" +
+            "nmcli -t -f ACTIVE,SIGNAL device wifi list --rescan no 2>/dev/null | awk -F: '$1==\"yes\" { print $2; exit }'"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const lines = text.split("\n").filter(l => l.length > 0);
+                root.netKind = lines.length >= 2 ? lines[0] : "none";
+                root.netName = lines.length >= 2 ? lines[1].replace(/\\:/g, ":") : "";
+                root.netSignal = lines.length >= 3 ? parseInt(lines[2]) : 0;
+            }
+        }
+    }
+    Timer {
+        interval: 10000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: netProbe.running = true
+    }
+
+    // Nerd Font icons (Maple Mono NF).
+    readonly property string iconFont: "Maple Mono NF"
+    function netIcon() {
+        if (netKind === "ethernet") return "\u{F0200}";
+        if (netKind !== "wifi") return "\u{F092E}";
+        return ["\u{F091F}", "\u{F0922}", "\u{F0925}", "\u{F0928}"][Math.min(3, Math.floor(netSignal / 25))];
+    }
+    function batteryIcon() {
+        if (charging) return "\u{F0084}";
+        if (batteryPercent >= 95) return "\u{F0079}";
+        return String.fromCodePoint(0xF007A + Math.max(0, Math.floor(batteryPercent / 10) - 1));
+    }
+    function soundIcon() {
+        if (soundMuted || soundPercent === 0) return "\u{F0581}";
+        return soundPercent < 34 ? "\u{F057F}" : (soundPercent < 67 ? "\u{F0580}" : "\u{F057E}");
+    }
+
+    component Glyph: Text {
+        color: root.glass
+        font.family: root.iconFont
+        font.pixelSize: 16
+        anchors.verticalCenter: parent.verticalCenter
+    }
+    component Label: Text {
+        color: root.furTan
+        font.pixelSize: 13
+        anchors.verticalCenter: parent.verticalCenter
     }
 
     // The English half of a Translated line.
@@ -499,6 +749,205 @@ ShellRoot {
                                 before: "< "
                                 after: " >"
                                 outlined: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ---------------------------------------------------- the corners
+            readonly property bool workstationEmpty: !ring || !ring.active || !ring.tiles || ring.tiles.length === 0
+            readonly property bool cornersKept: root.cornersPinned || workstationEmpty || (!!ring && ring.overview)
+            readonly property int workstation: ring && ring.workspace ? ring.workspace : 1
+            readonly property string frontName: ring && ring.active && !ring.overview && ring.tiles
+                && ring.tiles.length > 0 ? ring.tiles[0].name : ""
+            onWorkstationChanged: topLeft.peek(1600)
+
+            // Orders to the carousel plugin, through its pipe.
+            Process { id: order }
+            function goTo(n) {
+                order.command = ["sh", "-c", "printf 'workspace %s\\n' \"$1\" > \"$2\"", "sh", String(n),
+                    Quickshell.env("XDG_RUNTIME_DIR") + "/0space-ring-" + perScreen.modelData.name + ".ctl"];
+                order.running = true;
+            }
+
+            Corner {
+                id: topLeft
+                screen: perScreen.modelData
+                atTop: true
+                atLeft: true
+                keep: perScreen.cornersKept
+
+                // Workstations: the current one a glowing capsule, the others
+                // a filled dot if they hold windows, a faint ring if empty.
+                Pill {
+                    corner: topLeft
+                    lit: true
+                    pad: 12
+                    onScrolled: wheel => perScreen.goTo(Math.max(1, Math.min(
+                        perScreen.ring ? perScreen.ring.workspaces : 9,
+                        perScreen.workstation + (wheel.angleDelta.y < 0 ? 1 : -1))))
+                    Repeater {
+                        model: perScreen.ring && perScreen.ring.workspaces ? perScreen.ring.workspaces : 9
+                        Item {
+                            id: ws
+                            required property int index
+                            readonly property int number: index + 1
+                            readonly property bool current: number === perScreen.workstation
+                            readonly property bool used: !!perScreen.ring && !!perScreen.ring.occupied
+                                && perScreen.ring.occupied.indexOf(number) >= 0
+                            width: current ? 30 : 14
+                            height: 18
+                            anchors.verticalCenter: parent.verticalCenter
+                            Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: ws.current ? 30 : (ws.used ? 8 : 7)
+                                height: ws.current ? 18 : width
+                                radius: height / 2
+                                color: ws.current ? root.furBlue : (ws.used ? root.furTan : "transparent")
+                                border.width: ws.current || ws.used ? 0 : 1
+                                border.color: Qt.rgba(0.62, 0.83, 1, 0.45)
+                                Behavior on width { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                visible: ws.current
+                                text: ws.number
+                                color: root.skyHigh
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -3
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: perScreen.goTo(ws.number)
+                            }
+                        }
+                    }
+                }
+
+                // The window at the front of the carousel.
+                Pill {
+                    corner: topLeft
+                    visible: perScreen.frontName !== ""
+                    Translated {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: perScreen.frontName
+                        glyph: 7
+                        size: 12
+                        letterSpacing: 2
+                        upper: true
+                        scriptInk: root.glass
+                        ink: root.furTan
+                    }
+                }
+            }
+
+            Corner {
+                id: topRight
+                screen: perScreen.modelData
+                atTop: true
+                atLeft: false
+                keep: perScreen.cornersKept
+
+                Pill {
+                    corner: topRight
+                    lit: true
+                    Label {
+                        text: Qt.formatTime(clock.date, "HH:mm")
+                        color: root.glass
+                        font.pixelSize: 15
+                        font.bold: true
+                        font.letterSpacing: 1
+                    }
+                }
+
+                Pill {
+                    corner: topRight
+                    Translated {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: Qt.formatDate(clock.date, "dddd")
+                        glyph: 7
+                        size: 13
+                        scriptInk: root.glass
+                    }
+                    Label { text: Qt.formatDate(clock.date, "d MMMM") }
+                }
+            }
+
+            Corner {
+                id: bottomRight
+                screen: perScreen.modelData
+                atTop: false
+                atLeft: false
+                keep: perScreen.cornersKept || root.batteryLow
+
+                Pill {
+                    corner: bottomRight
+                    visible: root.hasBattery
+                    lit: root.batteryLow
+                    edgeColour: root.batteryLow ? root.treeRed : root.glass
+                    onClicked: Quickshell.execDetached(["mirrorwave", "--hold", "escafil", "scan"])
+                    Glyph { text: root.batteryIcon(); color: root.batteryLow ? root.treeRed : root.glass }
+                    Label { text: root.batteryPercent + "%" }
+                }
+
+                Pill {
+                    corner: bottomRight
+                    onClicked: Quickshell.execDetached(["0space-level", "mute"])
+                    onScrolled: wheel => Quickshell.execDetached(["0space-level", wheel.angleDelta.y > 0 ? "up" : "down"])
+                    Glyph { text: root.soundIcon(); color: root.soundMuted ? root.treeRed : root.glass }
+                    Label { text: root.soundMuted ? "off" : root.soundPercent + "%" }
+                }
+
+                Pill {
+                    corner: bottomRight
+                    onClicked: Quickshell.execDetached(["mirrorwave", "nmtui"])
+                    Glyph { text: root.netIcon(); color: root.netKind === "none" ? root.treeRed : root.glass }
+                    Label {
+                        text: root.netKind === "none" ? "Offline" : (root.netName || root.netKind)
+                        elide: Text.ElideRight
+                        width: Math.min(implicitWidth, 160)
+                    }
+                }
+
+                // The tray: left click opens, right click for the menu.
+                Pill {
+                    corner: bottomRight
+                    visible: SystemTray.items.values.length > 0
+                    pad: 11
+                    Repeater {
+                        model: SystemTray.items
+                        Item {
+                            id: trayItem
+                            required property SystemTrayItem modelData
+                            width: 18
+                            height: 18
+                            anchors.verticalCenter: parent.verticalCenter
+                            IconImage {
+                                anchors.fill: parent
+                                source: trayItem.modelData.icon
+                                asynchronous: true
+                            }
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -4
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: mouse => {
+                                    const item = trayItem.modelData;
+                                    if (mouse.button === Qt.MiddleButton) {
+                                        item.secondaryActivate();
+                                    } else if (mouse.button === Qt.LeftButton && !item.onlyMenu) {
+                                        item.activate();
+                                    } else if (item.hasMenu) {
+                                        const p = trayItem.mapToItem(bottomRight.contentItem, 0, 0);
+                                        item.display(bottomRight, p.x, p.y - 8);
+                                    }
+                                }
                             }
                         }
                     }
