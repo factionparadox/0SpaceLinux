@@ -35,6 +35,7 @@ in
             inputs.nixpkgs.outPath
             inputs.flake-parts.outPath
             inputs.import-tree.outPath
+            inputs.nixos-hardware.outPath
           ];
 
           environment.etc."0space-flake".source = design;

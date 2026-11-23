@@ -37,6 +37,27 @@
         "url": "https://github.com/vic/import-tree"
       }
     },
+    "nixos-hardware": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795018746,
+        "narHash": "sha256-glQAHvZGgBVjzGIWgIZYSf3X10gvtO2LPR4rtyP/Soc=",
+        "ref": "refs/heads/master",
+        "rev": "33475966110df258f52d05ec4d4cd6394637cbb9",
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/NixOS/nixos-hardware"
+      },
+      "original": {
+        "shallow": true,
+        "type": "git",
+        "url": "https://github.com/NixOS/nixos-hardware"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1795234589,
@@ -58,6 +79,7 @@
       "inputs": {
         "flake-parts": "flake-parts",
         "import-tree": "import-tree",
+        "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs"
       }
     }

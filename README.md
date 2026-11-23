@@ -105,7 +105,7 @@ with a soft fur-blue glow.
 |---|---|
 | Top left | Workstations (the current one a glowing capsule, ones with windows a filled dot; click or scroll to go) and the front window's name |
 | Top right | The day, as `<script>/Monday`, the date and the time |
-| Bottom right | Battery, sound (click to mute, scroll for volume), network (click for `nmtui`) and the tray (left click opens, right click for the menu) |
+| Bottom right | Battery (hover for time left, or time to full; red when low), sound (click to mute, scroll for volume), network (click for `nmtui`) and the tray (left click opens, right click for the menu) |
 
 They stay out while the workstation is empty and in the overview. Once a
 window is open they tuck away; touch a corner with the pointer to bring
@@ -118,6 +118,23 @@ The glass is the Dome itself, blurred: `art/dome-glass.png`, made by
 log in. Mirrorwave's see-through windows get Wayfire's real blur behind them.
 
 ![The corners](docs/corners.png)
+
+![The battery pill: normal, charging, low](docs/battery.png)
+
+## Hardware
+
+Laptops get their model's module from
+[nixos-hardware](https://github.com/NixOS/nixos-hardware). The installer
+recognises Framework laptops by their processor and writes the right one
+into the new host; the reference host is a Framework Laptop 13 Pro:
+
+```nix
+inputs.nixos-hardware.nixosModules.framework-intel-core-ultra-series3
+```
+
+That brings firmware updates (fwupd), the fingerprint reader, power tuning,
+`framework_tool`, and Framework's embedded-controller kernel module (battery
+charge limit, LEDs). Both of those come prebuilt from the NixOS cache.
 
 ## How it's built
 

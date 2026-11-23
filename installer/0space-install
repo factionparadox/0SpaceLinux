@@ -69,6 +69,37 @@ mount "$root" /mnt
 mkdir -p /mnt/boot
 mount -o umask=0077 "$efi" /mnt/boot
 
+# --- which machine is this? ----------------------------------------------------------
+# Framework laptops get their nixos-hardware module, chosen by processor
+# (more dependable than the exact model string in the firmware).
+hardware_module() {
+    local vendor product cpu
+    vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+    product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+    cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo | head -1)
+    [[ $vendor == Framework* ]] || return 0
+    case "$product|$cpu" in
+        *16*"|"*"Ryzen AI"*)               echo framework-16-amd-ai-300-series ;;
+        *16*"|"*Ryzen*)                    echo framework-16-7040-amd ;;
+        *Desktop*)                         echo framework-desktop-amd-ai-max-300-series ;;
+        *"|"*"Ultra "[0-9]" 3"[0-9][0-9]*) echo framework-intel-core-ultra-series3 ;;
+        *"|"*"Ultra "[0-9]" 1"[0-9][0-9]*) echo framework-intel-core-ultra-series1 ;;
+        *"|"*"Ryzen AI"*)                  echo framework-amd-ai-300-series ;;
+        *"|"*Ryzen*)                       echo framework-13-7040-amd ;;
+        *12*"|"*"13th Gen"*)               echo framework-12-13th-gen-intel ;;
+        *"|"*"13th Gen"*)                  echo framework-13th-gen-intel ;;
+        *"|"*"12th Gen"*)                  echo framework-12th-gen-intel ;;
+        *"|"*"11th Gen"*)                  echo framework-11th-gen-intel ;;
+    esac
+}
+machine=$(hardware_module)
+if [ -n "$machine" ]; then
+    say "This is a $(cat /sys/class/dmi/id/product_name 2>/dev/null || echo Framework). Its hardware module ($machine) goes in."
+    machine_import="    inputs.nixos-hardware.nixosModules.$machine"
+else
+    machine_import=""
+fi
+
 # --- the ship's design -------------------------------------------------------------
 say "Writing the ship's design."
 mkdir -p /mnt/etc/0space
@@ -81,8 +112,12 @@ nixos-generate-config --root /mnt --show-hardware-config > "$hostdir/hardware.ni
 printf "# Forms acquired with escafil acquire. One nixpkgs attribute per line.\n[\n]\n" > "$hostdir/forms.nix"
 cat > "$hostdir/default.nix" <<EOF
 # The Dome ship "$host". Change it, then: escafil morph
+{ inputs, ... }:
 {
-  imports = [ ./hardware.nix ];
+  imports = [
+    ./hardware.nix
+$machine_import
+  ];
   zerospace.user = "$user";
   zerospace.forms = import ./forms.nix;
   system.stateVersion = "26.05";

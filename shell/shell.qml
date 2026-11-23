@@ -99,6 +99,7 @@ ShellRoot {
         property bool lit: false        // glowing: the current workstation, a warning
         property color edgeColour: root.glass
         property int pad: 13
+        readonly property bool hovered: hover.hovered
         signal clicked(var mouse)
         signal scrolled(var wheel)
 
@@ -263,6 +264,17 @@ ShellRoot {
     readonly property bool charging: hasBattery && (battery.state === UPowerDeviceState.Charging
                                                     || battery.state === UPowerDeviceState.FullyCharged)
     readonly property bool batteryLow: hasBattery && !charging && batteryPercent <= 15
+    readonly property bool batteryFull: hasBattery && battery.state === UPowerDeviceState.FullyCharged
+    // "2h 14m left", "full in 40m", from UPower's estimates.
+    function batteryTime() {
+        if (!hasBattery) return "";
+        if (batteryFull) return "full";
+        const secs = charging ? battery.timeToFull : battery.timeToEmpty;
+        if (!secs || secs <= 0) return charging ? "charging" : "estimating";
+        const h = Math.floor(secs / 3600), m = Math.round((secs % 3600) / 60);
+        const t = h > 0 ? h + "h " + m + "m" : m + "m";
+        return charging ? "full in " + t : t + " left";
+    }
 
     PwObjectTracker { objects: [Pipewire.defaultAudioSink] }
     readonly property var sink: Pipewire.defaultAudioSink
@@ -885,14 +897,26 @@ ShellRoot {
                 atLeft: false
                 keep: perScreen.cornersKept || root.batteryLow
 
+                // Battery: hover for the time left (or until full); red and
+                // glowing when low. Only on machines that have one.
                 Pill {
+                    id: batteryPill
                     corner: bottomRight
                     visible: root.hasBattery
                     lit: root.batteryLow
                     edgeColour: root.batteryLow ? root.treeRed : root.glass
                     onClicked: Quickshell.execDetached(["mirrorwave", "--hold", "escafil", "scan"])
-                    Glyph { text: root.batteryIcon(); color: root.batteryLow ? root.treeRed : root.glass }
+                    Glyph {
+                        text: root.batteryIcon()
+                        color: root.batteryLow ? root.treeRed : (root.charging ? root.furTan : root.glass)
+                    }
                     Label { text: root.batteryPercent + "%" }
+                    Label {
+                        visible: batteryPill.hovered
+                        text: root.batteryTime()
+                        color: root.glass
+                        font.pixelSize: 12
+                    }
                 }
 
                 Pill {

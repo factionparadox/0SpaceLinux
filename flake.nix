@@ -6,6 +6,9 @@
     flake-parts.url = "git+https://github.com/hercules-ci/flake-parts?shallow=1";
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
     import-tree.url = "git+https://github.com/vic/import-tree?shallow=1";
+    # Hardware fixes and tuning per laptop model (the installer picks one).
+    nixos-hardware.url = "git+https://github.com/NixOS/nixos-hardware?shallow=1";
+    nixos-hardware.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   # Dendritic: every file under modules/ is a flake-parts module, picked up
