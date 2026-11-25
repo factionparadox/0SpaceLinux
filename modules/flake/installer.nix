@@ -25,7 +25,8 @@ in
           boot.supportedFilesystems.zfs = lib.mkForce false;   # 0-Space does not use ZFS, and it lags new kernels
           hardware.enableRedistributableFirmware = true;
           networking.networkmanager.enable = true;
-          networking.wireless.enable = lib.mkForce false;
+          # Not networking.wireless: NetworkManager switches it on itself to
+          # run wpa_supplicant, which it needs to drive the Wi-Fi card.
           nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
           image.baseName = lib.mkForce "0space-linux";
