@@ -26,10 +26,12 @@ An Andalite war-cruiser for a desktop, built on NixOS.
 - **escafil**: the operator. One short command for every job.
 - No Flatpak: everything comes from nixpkgs.
 - **The readout**: every new Mirrorwave window opens with fastfetch, themed:
-  the 0-Space logo as a picture, every label as `<script>/English` (Hull,
-  Mind, Sight, Hold, Z-space, Morphed…), and `< Dome integrity nominal. >`.
-  On a text console the logo is drawn in characters. Made by
-  `tools/make-fastfetch.py` into `theme/fastfetch/`.
+  the 0-Space logo as a picture, `Aristh you of the Dome ship <host>`, every
+  label as `<script>/English` (Hull, Core, Morph time against the two-hour
+  limit, Forms, Mind, Stalk eyes, Z-space, Hold, Power cells…), and a line of
+  thought-speak from the ship, different each time. On a text console the
+  logo is drawn in characters. Made by `tools/make-fastfetch.py` into
+  `theme/fastfetch/`.
 - **The everyday kit**: git, wget, curl, fastfetch, btop, jq, tree, file,
   zip/unzip/7z, lspci/lsusb/lsof and pavucontrol; Bluetooth (blueman), the
   network and Bluetooth applets in the tray, removable drives, the GNOME

@@ -28,7 +28,7 @@
   "modules": [
     {
       "type": "title",
-      "format": "{user-name-colored}{at-symbol-colored}{host-name-colored}",
+      "format": "\u001b[33mAristh\u001b[0m {user-name-colored}\u001b[34m of the Dome ship \u001b[0m{host-name-colored}",
       "color": {
         "user": "yellow",
         "at": "blue",
@@ -41,7 +41,7 @@
     },
     {
       "type": "os",
-      "key": "Design",
+      "key": "Dome ship",
       "format": "{name} {version-id}"
     },
     {
@@ -51,12 +51,13 @@
     },
     {
       "type": "kernel",
-      "key": "Kernel",
+      "key": "Core",
       "format": "{release}"
     },
     {
       "type": "uptime",
-      "key": "Morphed"
+      "key": "Morph time",
+      "format": "{hours}h {minutes}m / 2h limit"
     },
     {
       "type": "packages",
@@ -79,7 +80,7 @@
     },
     {
       "type": "gpu",
-      "key": "Sight",
+      "key": "Stalk eyes",
       "format": "{name}"
     },
     {
@@ -94,16 +95,19 @@
       "type": "disk",
       "key": "Hold",
       "folders": "/",
-      "format": "{size-used} / {size-total} ({size-percentage})"
+      "format": "{size-used} of {size-total}"
     },
     {
       "type": "battery",
-      "key": "Power"
+      "key": "Power cells"
     },
     "break",
     {
-      "type": "custom",
-      "format": "\u001b[33m< Dome integrity nominal. >\u001b[0m"
+      "type": "command",
+      "key": " ",
+      "keyWidth": 1,
+      "text": "shuf -n1 @SAYINGS@ 2>/dev/null || echo '< The Dome holds. >'",
+      "outputColor": "yellow"
     },
     "break",
     {

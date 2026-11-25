@@ -53,19 +53,34 @@ def text_logo(cols=38, rows=19):
 # ---------------------------------------------------------------- the configs
 # fastfetch module, its English label, and what the Andalite would call it.
 FIELDS = [
-    ("os", "Design", {"format": "{name} {version-id}"}),
+    ("os", "Dome ship", {"format": "{name} {version-id}"}),
     ("host", "Hull", {"format": "{name}"}),
-    ("kernel", "Kernel", {"format": "{release}"}),
-    ("uptime", "Morphed", {}),
+    ("kernel", "Core", {"format": "{release}"}),
+    ("uptime", "Morph time", {"format": "{hours}h {minutes}m / 2h limit"}),
     ("packages", "Forms", {}),
     ("wm", "Carousel", {"format": "{pretty-name}"}),
     ("display", "Viewscreen", {"format": "{width}x{height} @ {scale-factor}x"}),
     ("cpu", "Mind", {"format": "{name}"}),
-    ("gpu", "Sight", {"format": "{name}"}),
+    ("gpu", "Stalk eyes", {"format": "{name}"}),
     ("memory", "Memory", {}),
     ("swap", "Z-space", {}),
-    ("disk", "Hold", {"folders": "/", "format": "{size-used} / {size-total} ({size-percentage})"}),
-    ("battery", "Power", {}),
+    ("disk", "Hold", {"folders": "/", "format": "{size-used} of {size-total}"}),
+    ("battery", "Power cells", {}),
+]
+
+# Thought-speak from the ship: one line, picked at random each time. In
+# Mirrorwave the script gives the first three words, as the shell's does.
+SAYINGS = [
+    "The Dome holds.",
+    "Two hours in morph. No more.",
+    "Z-space is quiet tonight.",
+    "An aristh learns by watching.",
+    "Keep your tail blade ready.",
+    "The Dome grass is good to run on.",
+    "Thought-speak carries far.",
+    "The home world is far. The Dome is near.",
+    "Every acquired form is a trust.",
+    "Stalk eyes up. Watch the stars.",
 ]
 
 
@@ -74,7 +89,9 @@ def config(script):
         return f"{andalite(label)}/{label}" if script else label
 
     modules = [
-        {"type": "title", "format": "{user-name-colored}{at-symbol-colored}{host-name-colored}",
+        {"type": "title",
+         "format": (f"\u001b[33m{andalite('aristh')}/Aristh\u001b[0m " if script else "\u001b[33mAristh\u001b[0m ")
+                   + "{user-name-colored}\u001b[34m of the Dome ship \u001b[0m{host-name-colored}",
          "color": {"user": "yellow", "at": "blue", "host": "cyan"}},
         {"type": "custom", "format": "\u001b[34m" + "─" * 34 + "\u001b[0m"},
     ]
@@ -84,14 +101,14 @@ def config(script):
         modules.append(m)
     modules += [
         "break",
-        {"type": "custom",
-         "format": "\u001b[33m< " + (andalite("dome integrity nominal") + "/" if script else "")
-                   + "Dome integrity nominal. >\u001b[0m"},
+        {"type": "command", "key": " ", "keyWidth": 1,
+         "text": "shuf -n1 @SAYINGS@ 2>/dev/null || echo '< The Dome holds. >'",
+         "outputColor": "yellow"},
         "break",
-        {"type": "colors", "symbol": "circle" if script else "block", "paddingLeft": 0},
+        {"type": "colors", "symbol": "diamond" if script else "block", "paddingLeft": 0},
     ]
-    logo = ({"type": "kitty-direct", "source": "@LOGO_PNG@", "width": 18, "height": 9,
-             "padding": {"top": 2, "left": 2, "right": 3}}
+    logo = ({"type": "kitty-direct", "source": "@LOGO_PNG@", "width": 16, "height": 8,
+             "padding": {"top": 2, "left": 1, "right": 2}}
             if script else
             {"type": "file", "source": "@LOGO_TXT@", "color": {"1": "cyan", "2": "blue"},
              "padding": {"top": 1, "left": 2, "right": 3}})
@@ -102,7 +119,7 @@ def config(script):
             "separator": " ",
             "color": {"keys": "blue", "title": "yellow", "output": "white", "separator": "cyan"},
             # Script letters take one cell each in Mirrorwave, so lengths line up.
-            "key": {"width": max(len(key(l)) for _, l, _ in FIELDS) + 2},
+            "key": {"width": max(len(key(l)) for _, l, _ in FIELDS) + 1},
         },
         "modules": modules,
     }
@@ -110,6 +127,8 @@ def config(script):
 
 OUT.mkdir(parents=True, exist_ok=True)
 (OUT / "logo.txt").write_text(text_logo())
+(OUT / "sayings-mirrorwave.txt").write_text("".join(f"< {andalite(' '.join(x.split()[:3]))}/{x} >\n" for x in SAYINGS))
+(OUT / "sayings-console.txt").write_text("".join(f"< {x} >\n" for x in SAYINGS))
 (OUT / "mirrorwave.jsonc").write_text(json.dumps(config(True), ensure_ascii=False, indent=2) + "\n")
 (OUT / "console.jsonc").write_text(json.dumps(config(False), ensure_ascii=False, indent=2) + "\n")
 print("theme/fastfetch: logo.txt mirrorwave.jsonc console.jsonc")

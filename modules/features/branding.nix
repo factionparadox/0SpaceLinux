@@ -13,12 +13,13 @@
       install -Dm444 ${../../art/logo-256.png} $out/share/pixmaps/0space.png
     '';
 
-    themed = file: pkgs.writeText (baseNameOf file) (builtins.replaceStrings
-      [ "@LOGO_PNG@" "@LOGO_TXT@" ]
-      [ "${logo}/share/icons/hicolor/512x512/apps/0space.png" "${../../theme/fastfetch/logo.txt}" ]
+    themed = file: sayings: pkgs.writeText (baseNameOf file) (builtins.replaceStrings
+      [ "@LOGO_PNG@" "@LOGO_TXT@" "@SAYINGS@" "shuf " ]
+      [ "${logo}/share/icons/hicolor/512x512/apps/0space.png" "${../../theme/fastfetch/logo.txt}"
+        "${sayings}" "${pkgs.coreutils}/bin/shuf " ]
       (builtins.readFile file));
-    consoleConfig = themed ../../theme/fastfetch/console.jsonc;
-    mirrorwaveConfig = themed ../../theme/fastfetch/mirrorwave.jsonc;
+    consoleConfig = themed ../../theme/fastfetch/console.jsonc ../../theme/fastfetch/sayings-console.txt;
+    mirrorwaveConfig = themed ../../theme/fastfetch/mirrorwave.jsonc ../../theme/fastfetch/sayings-mirrorwave.txt;
 
     fastfetch = pkgs.writeShellScriptBin "fastfetch" ''
       own="''${XDG_CONFIG_HOME:-$HOME/.config}/fastfetch"
