@@ -16,6 +16,10 @@ export GUM_CONFIRM_SELECTED_FOREGROUND=0 GUM_CONFIRM_SELECTED_BACKGROUND=6
 export GUM_CONFIRM_UNSELECTED_FOREGROUND=7 GUM_CONFIRM_UNSELECTED_BACKGROUND=8
 export GUM_CHOOSE_CURSOR_FOREGROUND=6 GUM_CHOOSE_SELECTED_FOREGROUND=6 GUM_CHOOSE_ITEM_FOREGROUND=7
 export GUM_INPUT_PROMPT_FOREGROUND=3 GUM_INPUT_CURSOR_FOREGROUND=6 GUM_INPUT_PLACEHOLDER_FOREGROUND=8
+# nmtui (the Wi-Fi screen) in the same colours. newt's names for the console
+# palette: black night, blue fur blue, brown fur tan, cyan dome glass,
+# lightgray text, red red.
+export NEWT_COLORS='root=lightgray,black;window=lightgray,black;border=blue,black;shadow=black,black;title=brown,black;label=brown,black;textbox=lightgray,black;acttextbox=black,cyan;entry=lightgray,black;disentry=gray,black;listbox=lightgray,black;actlistbox=black,cyan;sellistbox=brown,black;actsellistbox=black,cyan;button=lightgray,black;actbutton=black,cyan;compactbutton=lightgray,black;checkbox=lightgray,black;actcheckbox=black,cyan;emptyscale=,black;fullscale=,blue;helpline=brown,black;roottext=brown,black'
 STYLE=(--border rounded --border-foreground 4 --padding "1 2" --margin "1 0")
 
 say() { gum style --foreground 6 "< $* >"; }
