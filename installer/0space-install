@@ -66,19 +66,43 @@ done
 
 # --- partitions ------------------------------------------------------------------
 say "Preparing $disk."
+# Unmount anything on the disk, and erase every old filesystem signature
+# (partitions first, then the disk), so nothing left from a previous system
+# can be mistaken for the new filesystems.
+for p in $(lsblk -lnpo NAME "$disk" | tail -n +2); do
+    umount -q "$p" 2>/dev/null || true
+    wipefs -af "$p" >/dev/null 2>&1 || true
+done
 wipefs -af "$disk" >/dev/null
 parted -s "$disk" -- mklabel gpt \
     mkpart ESP fat32 1MiB 1GiB set 1 esp on \
     mkpart 0space ext4 1GiB 100%
+partprobe "$disk" 2>/dev/null || true
 udevadm settle
-part() { lsblk -lnpo NAME "$disk" | sed -n "$(( $1 + 1 ))p"; }
-efi="$(part 1)"
-root="$(part 2)"
+
+# Partition names: nvme0n1 -> nvme0n1p1, sda -> sda1.
+case "$disk" in
+    *[0-9]) efi="${disk}p1" root="${disk}p2" ;;
+    *)      efi="${disk}1"  root="${disk}2" ;;
+esac
+for p in "$efi" "$root"; do
+    for _ in $(seq 1 20); do [ -b "$p" ] && break; sleep 0.5; done
+    [ -b "$p" ] || fail "The new partition $p did not appear."
+    wipefs -af "$p" >/dev/null
+done
+
 mkfs.fat -F 32 -n 0SPACE-EFI "$efi" >/dev/null
 mkfs.ext4 -qF -L 0space "$root"
-mount "$root" /mnt
+sync
+udevadm settle
+# Check the disk really holds what was just written before going on.
+[ "$(blkid -p -s TYPE -o value "$root")" = ext4 ] \
+    || fail "$root should now be ext4 but reads as '$(blkid -p -s TYPE -o value "$root")'. Nothing has been installed. Photograph this and the output of: lsblk -f"
+[ "$(blkid -p -s TYPE -o value "$efi")" = vfat ] \
+    || fail "$efi should now be FAT but isn't. Nothing has been installed."
+mount -t ext4 "$root" /mnt
 mkdir -p /mnt/boot
-mount -o umask=0077 "$efi" /mnt/boot
+mount -t vfat -o umask=0077 "$efi" /mnt/boot
 
 # --- which machine is this? ----------------------------------------------------------
 # Framework laptops get their nixos-hardware module, chosen by processor
