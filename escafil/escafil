@@ -128,12 +128,19 @@ morph() {
     say "Morph complete."
 }
 
+# The newest 0-Space from home: its modules, art and pinned packages (the
+# ones it was built and tested with), keeping your ship's own design.
+UPSTREAM="${ZEROSPACE_UPSTREAM:-https://github.com/factionparadox/0SpaceLinux}"
 jump() {
     need_flake
     record "before-jump-$(date +%Y%m%d-%H%M%S)" >/dev/null
-    say "Plotting a Z-space jump to the newest packages."
-    prince nix flake update --flake "$FLAKE"
-    morph
+    say "Plotting a Z-space jump to the newest 0-Space."
+    local tmp
+    tmp="$(mktemp -d)"
+    # shellcheck disable=SC2064  # expand now: the path is fixed
+    trap "rm -rf '$tmp'" EXIT
+    git clone --quiet --depth 1 "$UPSTREAM" "$tmp/0space" || die "Couldn't reach $UPSTREAM."
+    ZEROSPACE_FLAKE="$FLAKE" "$tmp/0space/tools/sync"
 }
 
 demorph() {
@@ -244,7 +251,7 @@ The ship
 
 Morphing
   escafil morph             Rebuild the ship from its design and switch to it.
-  escafil jump              Update to the newest packages, then morph.
+  escafil jump              Update to the newest 0-Space (keeps your ship), then morph.
   escafil demorph           Go back to the previous generation.
   escafil generations       List every generation you can go back to.
 
@@ -263,7 +270,7 @@ The hold
 Words
   Morph       Become the ship's current design.
   Demorph     Return to the form you had before.
-  Jump        A Z-space jump to the newest packages.
+  Jump        A Z-space jump to the newest 0-Space.
   Forms       Packages you have acquired.
   Shred       Clear out old generations.
 EOF

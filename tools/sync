@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Bring the installed ship up to this copy of 0-Space, then rebuild.
+#
+# Everything is replaced except hosts/, which holds your own ship (its
+# hardware, forms and settings). Your previous system stays in the boot menu.
+#
+#   tools/sync              (from a clone of the repo)
+#   escafil jump            (does this with a fresh clone)
+set -euo pipefail
+
+src="$(cd "$(dirname "$0")/.." && pwd)"
+flake="${ZEROSPACE_FLAKE:-/etc/0space}"
+host="$(hostname)"
+
+say() { printf '< %s >\n' "$*"; }
+prince() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
+
+[ -f "$src/flake.nix" ] || { say "No 0-Space here: $src"; exit 1; }
+[ -d "$flake/hosts/$host" ] || { say "This ship ($host) has no design in $flake/hosts. Nothing changed."; exit 1; }
+
+say "Taking on the newest 0-Space. Your ship's own design ($flake/hosts) is kept."
+tar -C "$src" --exclude=./.git --exclude=./hosts --exclude=./result \
+    --exclude=./0space-linux.iso -cf - . | prince tar -C "$flake" --no-same-owner -xf -
+
+say "Morphing."
+prince nixos-rebuild switch --flake "$flake#$host"
+say "Morph complete."

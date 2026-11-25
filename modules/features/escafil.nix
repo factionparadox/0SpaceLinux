@@ -12,7 +12,7 @@
           install -Dm755 escafil $out/bin/escafil
           wrapProgram $out/bin/escafil \
             --set-default ZEROSPACE_FLAKE /etc/0space \
-            --prefix PATH : ${pkgs.lib.makeBinPath (with pkgs; [ coreutils gnugrep gnused gawk git nix nixos-rebuild-ng hostname procps ])}
+            --prefix PATH : ${pkgs.lib.makeBinPath (with pkgs; [ coreutils gnugrep gnused gawk gnutar git nix nixos-rebuild-ng hostname procps ])}
         '';
       };
     in

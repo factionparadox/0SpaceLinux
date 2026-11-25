@@ -271,7 +271,7 @@ installer starts by itself:
 
 Framework laptops get their hardware module automatically. After that,
 everything is `escafil`: `escafil scan` to look round, `escafil jump` to
-update.
+update to the newest 0-Space (your ship's own design in `hosts/` is kept).
 
 ### Building it yourself
 
