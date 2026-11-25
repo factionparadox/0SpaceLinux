@@ -70,6 +70,7 @@ say "Preparing $disk."
 # (partitions first, then the disk), so nothing left from a previous system
 # can be mistaken for the new filesystems.
 for p in $(lsblk -lnpo NAME "$disk" | tail -n +2); do
+    swapoff "$p" 2>/dev/null || true
     umount -q "$p" 2>/dev/null || true
     wipefs -af "$p" >/dev/null 2>&1 || true
 done
@@ -92,7 +93,7 @@ for p in "$efi" "$root"; do
 done
 
 mkfs.fat -F 32 -n 0SPACE-EFI "$efi" >/dev/null
-mkfs.ext4 -qF -L 0space "$root"
+mkfs.ext4 -qF -E nodiscard -L 0space "$root"
 sync
 udevadm settle
 # Check the disk really holds what was just written before going on.

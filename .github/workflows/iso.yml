@@ -8,6 +8,12 @@ on:
   push:
     branches: [iso]
 
+# A newer push cancels an older run still building, so the newest ISO is
+# always the one that finishes.
+concurrency:
+  group: iso
+  cancel-in-progress: true
+
 jobs:
   iso:
     runs-on: ubuntu-latest
@@ -22,15 +28,46 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # What we build ourselves (the liberated systemd, mainly) is kept between
+      # runs, so it's compiled once per systemd version, not on every run.
+      - name: Restore our own builds
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/0space-cache
+          key: own-builds-${{ hashFiles('flake.lock', 'patches/**', 'modules/features/liberated-systemd.nix') }}
+          restore-keys: own-builds-
+
+      - name: Prepare the local cache
+        run: |
+          mkdir -p /tmp/0space-cache
+          [ -f /tmp/0space-cache/nix-cache-info ] || printf 'StoreDir: /nix/store\nWantMassQuery: 1\nPriority: 30\n' > /tmp/0space-cache/nix-cache-info
+          du -sh /tmp/0space-cache
+
       - uses: cachix/install-nix-action@v31
         with:
           extra_nix_config: |
             experimental-features = nix-command flakes
+            extra-substituters = file:///tmp/0space-cache?trusted=1
             max-jobs = auto
             cores = 0
 
       - name: Build the ISO
         run: nix build .#iso --print-out-paths --log-format bar-with-logs 2>&1 | tail -n 200
+
+      - name: Keep our own builds for next time
+        run: |
+          # The systemd builds the ISO actually holds (the liberated one among
+          # them) and the carousel plugin, with whatever they depend on.
+          nix copy --to file:///tmp/0space-cache \
+            $(nix path-info --recursive ./result | grep -E -- '-systemd-[0-9]') \
+            $(nix path-info .#zerospace-ring)
+          du -sh /tmp/0space-cache
+
+      - name: Save our own builds
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/0space-cache
+          key: own-builds-${{ hashFiles('flake.lock', 'patches/**', 'modules/features/liberated-systemd.nix') }}-${{ github.run_id }}
 
       - name: Name and checksum it
         run: |
