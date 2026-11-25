@@ -64,7 +64,7 @@
       # The everyday kit every ship carries.
       programs.git.enable = true;
       environment.systemPackages = with pkgs; [
-        git wget curl fastfetch btop jq tree file
+        git wget curl btop   # fastfetch is in branding.nix, themed jq tree file
         unzip zip p7zip
         pciutils usbutils lsof
         pavucontrol networkmanagerapplet

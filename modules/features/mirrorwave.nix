@@ -104,6 +104,14 @@ in
     in
     {
       environment.systemPackages = [ mirrorwave ];
+      # Each new Mirrorwave window opens with the ship's readout (fastfetch).
+      # Shells started inside it don't repeat it.
+      programs.bash.interactiveShellInit = ''
+        if [ -n "''${MIRRORWAVE:-}" ] && [ -z "''${ZEROSPACE_READOUT:-}" ]; then
+          export ZEROSPACE_READOUT=1
+          command -v fastfetch >/dev/null && fastfetch
+        fi
+      '';
       fonts.packages = [ (import ../../lib/script-font.nix pkgs) ];
       xdg.terminal-exec = {
         enable = true;
