@@ -259,14 +259,18 @@ update.
 
 ### Building it yourself
 
-On a machine with Nix and flakes:
+In WSL (ArchWSL is fine) or on any Linux:
 
 ```sh
-nix build .#iso
+git clone https://github.com/factionparadox/0SpaceLinux
+0SpaceLinux/tools/build-iso
 ```
 
-The ISO lands in `result/iso/`. It compiles systemd once (the liberated
-version) and downloads the rest from the NixOS cache.
+It installs Nix first if needed, builds the ISO, and on WSL copies it to your
+Windows Downloads. The first build compiles the liberated systemd and
+downloads the rest from the NixOS cache; after that, builds reuse what's
+already built. To rebuild after changes: `git pull`, then
+`tools/build-iso` again.
 
 ## Status
 
