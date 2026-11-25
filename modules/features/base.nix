@@ -61,6 +61,24 @@
       boot.initrd.compressor = "zstd";
       nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 14d"; };
 
+      # The everyday kit every ship carries.
+      programs.git.enable = true;
+      environment.systemPackages = with pkgs; [
+        git wget curl fastfetch btop jq tree file
+        unzip zip p7zip
+        pciutils usbutils lsof
+        pavucontrol networkmanagerapplet
+      ];
+
+      # Bluetooth, removable drives, saved passwords (Proton VPN and Discord keep
+      # theirs in the keyring), and a prompt when an app needs admin rights.
+      hardware.bluetooth = { enable = true; powerOnBoot = false; };
+      services.blueman.enable = true;
+      services.udisks2.enable = true;
+      services.gnome.gnome-keyring.enable = true;
+      security.pam.services.greetd.enableGnomeKeyring = true;
+      security.polkit.enable = true;
+
       # No Flatpak on 0-Space: everything comes from nixpkgs.
       services.flatpak.enable = false;
 

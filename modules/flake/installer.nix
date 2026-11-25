@@ -40,7 +40,7 @@ in
           ];
 
           environment.etc."0space-flake".source = design;
-          environment.systemPackages = [ install ];
+          environment.systemPackages = [ install pkgs.git ];
 
           # The first console runs the installer as soon as it logs in.
           services.getty.autologinUser = lib.mkForce "root";

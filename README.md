@@ -25,6 +25,10 @@ An Andalite war-cruiser for a desktop, built on NixOS.
 - **Liberated systemd**: systemd without the `birthDate` user-record field.
 - **escafil**: the operator. One short command for every job.
 - No Flatpak: everything comes from nixpkgs.
+- **The everyday kit**: git, wget, curl, fastfetch, btop, jq, tree, file,
+  zip/unzip/7z, lspci/lsusb/lsof and pavucontrol; Bluetooth (blueman), the
+  network and Bluetooth applets in the tray, removable drives, the GNOME
+  keyring for saved passwords, and a polkit prompt for admin rights.
 - **Lean running**: zram swap (zstd, half of RAM), no waiting for the network
   at boot, no NixOS manual built into every generation, no speech daemon, a
   capped journal, weekly TRIM, thermald, and generations older than two

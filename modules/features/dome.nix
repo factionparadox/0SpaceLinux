@@ -9,8 +9,10 @@
 
       wayfireIni = pkgs.writeText "0space-wayfire.ini"
         (builtins.replaceStrings
-          [ "quickshell -p /usr/share/0space/shell/shell.qml" ]
-          [ "quickshell -p ${shell}/shell.qml" ]
+          [ "quickshell -p /usr/share/0space/shell/shell.qml"
+            "/usr/libexec/polkit-gnome-authentication-agent-1" ]
+          [ "quickshell -p ${shell}/shell.qml"
+            "${pkgs.polkit_gnome}/libexec/polkit-gnome-authentication-agent-1" ]
           (builtins.readFile ../../shell/wayfire.ini));
 
       # Picks each screen's scale from its pixel density at login.
