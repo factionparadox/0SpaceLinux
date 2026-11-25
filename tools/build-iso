@@ -18,19 +18,25 @@ if ! command -v nix >/dev/null 2>&1; then
     . "$HOME/.nix-profile/etc/profile.d/nix.sh"
 fi
 
-# Nix installed from a package (Arch's, say) expects a background daemon,
-# which WSL doesn't run. Without one, use the store directly: make /nix
+# Does Nix actually work here? A package-installed Nix (Arch's, say) expects
+# a background daemon that WSL may not be running, and may never have made
+# /nix/store. If it doesn't work, use the store directly instead: make /nix
 # ours (asks for your password once) and build without build users.
 nixopts=(--extra-experimental-features 'nix-command flakes'
          --option max-jobs auto --option cores 0)
-if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
-    if [ ! -w /nix ] && [ "$(id -u)" -ne 0 ]; then
-        echo "< Giving Nix a home in /nix (once). >"
+if ! nix "${nixopts[@]}" store info >/dev/null 2>&1; then
+    echo "< Setting Nix up to work without its daemon (once). >"
+    if [ ! -w /nix ] || { [ -e /nix/store ] && [ ! -w /nix/store ]; }; then
         sudo mkdir -p /nix
         sudo chown -R "$(id -u):$(id -g)" /nix
     fi
     export NIX_REMOTE=local
     nixopts+=(--option build-users-group '')
+    if ! nix "${nixopts[@]}" store info >/dev/null 2>&1; then
+        echo "< Nix still can't use its store. What it says: >"
+        nix "${nixopts[@]}" store info
+        exit 1
+    fi
 fi
 
 echo "< Building the ISO. The first build compiles the liberated systemd; later ones reuse it. >"
