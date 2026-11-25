@@ -8,19 +8,33 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Nix: use it if it's set up; set it up if it isn't.
 if ! command -v nix >/dev/null 2>&1; then
-    [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ] || {
+    if [ ! -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
         echo "< Installing Nix (once). >"
         sh <(curl -fsSL https://nixos.org/nix/install) --no-daemon --yes
-    }
+    fi
     # shellcheck disable=SC1091
     . "$HOME/.nix-profile/etc/profile.d/nix.sh"
 fi
 
+# Nix installed from a package (Arch's, say) expects a background daemon,
+# which WSL doesn't run. Without one, use the store directly: make /nix
+# ours (asks for your password once) and build without build users.
+nixopts=(--extra-experimental-features 'nix-command flakes'
+         --option max-jobs auto --option cores 0)
+if [ ! -S /nix/var/nix/daemon-socket/socket ]; then
+    if [ ! -w /nix ] && [ "$(id -u)" -ne 0 ]; then
+        echo "< Giving Nix a home in /nix (once). >"
+        sudo mkdir -p /nix
+        sudo chown -R "$(id -u):$(id -g)" /nix
+    fi
+    export NIX_REMOTE=local
+    nixopts+=(--option build-users-group '')
+fi
+
 echo "< Building the ISO. The first build compiles the liberated systemd; later ones reuse it. >"
-nix --extra-experimental-features 'nix-command flakes' \
-    --option max-jobs auto --option cores 0 \
-    build .#iso
+nix "${nixopts[@]}" build .#iso
 
 iso=$(find -L result/iso -name '*.iso' | head -n 1)
 echo "< Built: $PWD/$iso >"
