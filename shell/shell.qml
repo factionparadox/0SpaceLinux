@@ -103,6 +103,90 @@ ShellRoot {
         function toggle(): void { root.cornersPinned = !root.cornersPinned }
     }
 
+    // Frosted glass: the patch of the blurred Dome that lies behind this item,
+    // a thin blue tint, a sheen across the top, a glow along the bottom and a
+    // bright rim. Repaints are batched, so a sliding corner costs a few
+    // paints rather than one per frame.
+    component Frost: Canvas {
+        id: fr
+        property real radius: 16
+        property real tint: 0.34
+        property color edge: root.glass
+        property real edgeAlpha: 0.4
+        property point origin: Qt.point(0, 0)   // top left of this item, on the screen
+        property real screenW: 0
+        property real screenH: 0
+        property size art: Qt.size(0, 0)
+        renderStrategy: Canvas.Cooperative
+
+        function later() { settle.restart() }
+        Timer { id: settle; interval: 40; onTriggered: fr.requestPaint() }
+        onOriginChanged: later()
+        onWidthChanged: later()
+        onHeightChanged: later()
+        onEdgeAlphaChanged: requestPaint()
+        onEdgeChanged: requestPaint()
+        Component.onCompleted: loadImage(root.glassArt)
+        // The image can finish loading before the canvas is ready to draw;
+        // measure it whenever both are true.
+        function measure() {
+            if (!available || !isImageLoaded(root.glassArt)) return;
+            const d = getContext("2d").createImageData(root.glassArt);
+            art = Qt.size(d.width, d.height);
+            requestPaint();
+        }
+        onImageLoaded: measure()
+        onAvailableChanged: measure()
+
+        onPaint: {
+            const ctx = getContext("2d");
+            ctx.reset();
+            if (width < 2 || height < 2) return;
+            const r = Math.min(radius, height / 2, width / 2);
+            ctx.beginPath();
+            ctx.roundedRect(0.5, 0.5, width - 1, height - 1, r, r);
+            ctx.closePath();
+            ctx.save();
+            ctx.clip();
+            if (art.width > 0 && screenW > 0 && isImageLoaded(root.glassArt)) {
+                // The Dome is drawn cover-fit; find this item's patch of it.
+                const k = Math.max(screenW / art.width, screenH / art.height);
+                const ox = (screenW - art.width * k) / 2, oy = (screenH - art.height * k) / 2;
+                ctx.drawImage(root.glassArt, (origin.x - ox) / k, (origin.y - oy) / k, width / k, height / k,
+                              0, 0, width, height);
+            }
+            ctx.fillStyle = Qt.rgba(0.035, 0.08, 0.17, tint);
+            ctx.fillRect(0, 0, width, height);
+            // light falling on the top of the glass
+            const sheen = ctx.createLinearGradient(0, 0, 0, Math.min(height, 80));
+            sheen.addColorStop(0, "rgba(190, 228, 255, 0.20)");
+            sheen.addColorStop(0.5, "rgba(159, 212, 255, 0.05)");
+            sheen.addColorStop(1, "rgba(159, 212, 255, 0)");
+            ctx.fillStyle = sheen;
+            ctx.fillRect(0, 0, width, height);
+            // and glowing up from the bottom edge
+            const glow = ctx.createLinearGradient(0, height, 0, height - Math.min(height, 60));
+            glow.addColorStop(0, Qt.rgba(edge.r, edge.g, edge.b, 0.14));
+            glow.addColorStop(1, Qt.rgba(edge.r, edge.g, edge.b, 0));
+            ctx.fillStyle = glow;
+            ctx.fillRect(0, 0, width, height);
+            ctx.restore();
+            // outer rim
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = Qt.rgba(edge.r, edge.g, edge.b, edgeAlpha);
+            ctx.stroke();
+            // inner highlight: bright along the top, gone by the middle
+            ctx.beginPath();
+            ctx.roundedRect(1.5, 1.5, width - 3, height - 3, Math.max(r - 1, 0), Math.max(r - 1, 0));
+            const hl = ctx.createLinearGradient(0, 0, 0, height);
+            hl.addColorStop(0, "rgba(235, 246, 255, 0.30)");
+            hl.addColorStop(0.45, "rgba(235, 246, 255, 0)");
+            hl.addColorStop(1, Qt.rgba(edge.r, edge.g, edge.b, 0.10));
+            ctx.strokeStyle = hl;
+            ctx.stroke();
+        }
+    }
+
     component Pill: Item {
         id: pill
         default property alias content: inner.data
@@ -133,67 +217,22 @@ ShellRoot {
             Behavior on opacity { NumberAnimation { duration: 200 } }
         }
 
-        Canvas {
+        Frost {
             id: glassPane
             anchors.fill: parent
-            property size art: Qt.size(0, 0)
+            radius: height / 2
+            tint: 0.30
+            edge: pill.edgeColour
+            edgeAlpha: pill.lit ? 0.85 : 0.32
+            screenW: pill.corner ? pill.corner.screen.width : 0
+            screenH: pill.corner ? pill.corner.screen.height : 0
             // Where the pill is on the screen, re-read whenever it moves.
-            property point at: {
+            origin: {
                 pill.x; pill.y; pill.width; pill.parent ? pill.parent.x + pill.parent.y : 0;
-                return pill.corner ? pill.mapToItem(pill.corner.contentItem, 0, 0) : Qt.point(0, 0);
+                if (!pill.corner) return Qt.point(0, 0);
+                const p = pill.mapToItem(pill.corner.contentItem, 0, 0);
+                return Qt.point(pill.corner.screenX + p.x, pill.corner.screenY + p.y);
             }
-            onAtChanged: requestPaint()
-            onWidthChanged: requestPaint()
-            Component.onCompleted: loadImage(root.glassArt)
-            // The image can finish loading before the canvas is ready to
-            // draw; measure it whenever both are true.
-            function measure() {
-                if (!available || !isImageLoaded(root.glassArt)) return;
-                const d = getContext("2d").createImageData(root.glassArt);
-                art = Qt.size(d.width, d.height);
-                requestPaint();
-            }
-            onImageLoaded: measure()
-            onAvailableChanged: measure()
-
-            onPaint: {
-                const ctx = getContext("2d");
-                ctx.reset();
-                const r = height / 2;
-                ctx.beginPath();
-                ctx.roundedRect(0.5, 0.5, width - 1, height - 1, r, r);
-                ctx.closePath();
-                ctx.save();
-                ctx.clip();
-                const c = pill.corner;
-                if (c && art.width > 0 && isImageLoaded(root.glassArt)) {
-                    // The Dome is drawn cover-fit; find this pill's patch of it.
-                    const sw = c.screen.width, sh = c.screen.height;
-                    const k = Math.max(sw / art.width, sh / art.height);
-                    const ox = (sw - art.width * k) / 2, oy = (sh - art.height * k) / 2;
-                    const sx = c.screenX + at.x, sy = c.screenY + at.y;
-                    ctx.drawImage(root.glassArt, (sx - ox) / k, (sy - oy) / k, width / k, height / k,
-                                  0, 0, width, height);
-                }
-                ctx.fillStyle = "rgba(9, 20, 44, 0.46)";
-                ctx.fillRect(0, 0, width, height);
-                const sheen = ctx.createLinearGradient(0, 0, 0, height);
-                sheen.addColorStop(0, "rgba(159, 212, 255, 0.16)");
-                sheen.addColorStop(0.55, "rgba(159, 212, 255, 0)");
-                ctx.fillStyle = sheen;
-                ctx.fillRect(0, 0, width, height);
-                ctx.restore();
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = Qt.rgba(pill.edgeColour.r, pill.edgeColour.g, pill.edgeColour.b,
-                                          pill.lit ? 0.8 : 0.26);
-                ctx.stroke();
-            }
-        }
-
-        Connections {
-            target: pill
-            function onLitChanged() { glassPane.requestPaint() }
-            function onEdgeColourChanged() { glassPane.requestPaint() }
         }
 
         MouseArea {
@@ -434,10 +473,16 @@ ShellRoot {
 
                 // The biosphere under the dome: sky, glass lattice, horizon,
                 // alien grass and the red, blue and pink trees of home.
+                // Drawn only when there is no art at all: no canvas, no memory otherwise.
+                Loader {
+                    anchors.fill: parent
+                    active: userImage.status === Image.Error && systemImage.status === Image.Error
+                    sourceComponent: biosphereCanvas
+                }
+                Component {
+                    id: biosphereCanvas
                 Canvas {
                     id: biosphere
-                    anchors.fill: parent
-                    visible: !userImage.visible && !systemImage.visible
                     onWidthChanged: requestPaint()
                     onHeightChanged: requestPaint()
                     onPaint: {
@@ -576,11 +621,15 @@ ShellRoot {
                         ctx.globalAlpha = 1;
                     }
                 }
+                }
 
+                // Your own Dome if you have one, else the system's. Only one is
+                // ever loaded, decoded at the screen's size rather than the art's.
                 Image {
                     id: userImage
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectCrop
+                    sourceSize: Qt.size(dome.width, dome.height)
                     source: "file://" + root.userArt
                     visible: status === Image.Ready
                 }
@@ -589,8 +638,9 @@ ShellRoot {
                     id: systemImage
                     anchors.fill: parent
                     fillMode: Image.PreserveAspectCrop
-                    source: "file://" + root.systemArt
-                    visible: status === Image.Ready && !userImage.visible
+                    sourceSize: Qt.size(dome.width, dome.height)
+                    source: userImage.status === Image.Error ? "file://" + root.systemArt : ""
+                    visible: status === Image.Ready
                 }
 
                 // ------------------------------------------------ the ring
@@ -1051,9 +1101,18 @@ ShellRoot {
 
         Timer { id: disarm; interval: 3000; onTriggered: powerMenu.armed = "" }
 
+        // A frosted veil over whatever is behind: the blurred Dome, faintly.
+        Image {
+            anchors.fill: parent
+            source: root.glassArt
+            fillMode: Image.PreserveAspectCrop
+            sourceSize: Qt.size(720, 480)
+            opacity: 0.55
+            asynchronous: true
+        }
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.03, 0.07, 0.15, 0.45)
+            color: Qt.rgba(0.03, 0.07, 0.15, 0.30)
             MouseArea { anchors.fill: parent; onClicked: powerMenu.open = false }
         }
 
@@ -1064,10 +1123,21 @@ ShellRoot {
             height: rows.implicitHeight + 24
             anchors { top: parent.top; right: parent.right; topMargin: 60; rightMargin: 14 }
             radius: 16
-            color: Qt.rgba(0.04, 0.09, 0.19, 0.94)
+            color: "transparent"
             border.color: root.glass
-            border.width: 1
+            border.width: 0
             MouseArea { anchors.fill: parent }
+            Frost {
+                anchors.fill: parent
+                z: -0.5
+                radius: 16
+                tint: 0.40
+                edge: parent.border.color
+                edgeAlpha: 0.55
+                screenW: powerMenu.screen ? powerMenu.screen.width : 0
+                screenH: powerMenu.screen ? powerMenu.screen.height : 0
+                origin: { menu.x; menu.y; return menu.mapToItem(null, 0, 0); }
+            }
 
             BorderImage {
                 anchors.fill: parent
@@ -1200,9 +1270,18 @@ ShellRoot {
         }
 
         // The Dome dims behind it; clicking outside closes it.
+        // A frosted veil over whatever is behind: the blurred Dome, faintly.
+        Image {
+            anchors.fill: parent
+            source: root.glassArt
+            fillMode: Image.PreserveAspectCrop
+            sourceSize: Qt.size(720, 480)
+            opacity: 0.55
+            asynchronous: true
+        }
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.03, 0.07, 0.15, 0.55)
+            color: Qt.rgba(0.03, 0.07, 0.15, 0.30)
             MouseArea { anchors.fill: parent; onClicked: launcher.open = false }
         }
 
@@ -1213,10 +1292,21 @@ ShellRoot {
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.2
             radius: 16
-            color: Qt.rgba(0.04, 0.09, 0.19, 0.94)
+            color: "transparent"
             border.color: root.glass
-            border.width: 1
+            border.width: 0
             MouseArea { anchors.fill: parent }   // clicks on the panel don't close it
+            Frost {
+                anchors.fill: parent
+                z: -0.5
+                radius: 16
+                tint: 0.40
+                edge: parent.border.color
+                edgeAlpha: 0.55
+                screenW: launcher.screen ? launcher.screen.width : 0
+                screenH: launcher.screen ? launcher.screen.height : 0
+                origin: { panel.x; panel.y; panel.height; return panel.mapToItem(null, 0, 0); }
+            }
 
             Column {
                 id: column
@@ -1370,9 +1460,20 @@ ShellRoot {
         Rectangle {
             anchors.fill: parent
             radius: 14
-            color: Qt.rgba(0.04, 0.09, 0.19, 0.88)
+            color: "transparent"
             border.color: level.muted ? root.treeRed : root.glass
-            border.width: 1
+            border.width: 0
+            Frost {
+                anchors.fill: parent
+                z: -0.5
+                radius: 14
+                tint: 0.40
+                edge: parent.border.color
+                edgeAlpha: 0.55
+                screenW: level.screen ? level.screen.width : 0
+                screenH: level.screen ? level.screen.height : 0
+                origin: Qt.point(((level.screen ? level.screen.width : 0) - level.width) / 2, (level.screen ? level.screen.height : 0) - level.height - 64)
+            }
 
             Row {
                 anchors.centerIn: parent

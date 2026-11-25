@@ -2,8 +2,8 @@
 
 /* Header bars, menu bars and toolbars: a raised pane with a fur-blue rim. */
 headerbar, .titlebar, menubar, toolbar, .toolbar {
-  background-color: #13203a;
-  background-image: linear-gradient(to bottom, rgba(159, 212, 255, 0.08), rgba(159, 212, 255, 0));
+  background-color: rgba(19, 32, 58, 0.55);
+  background-image: linear-gradient(to bottom, rgba(190, 228, 255, 0.14), rgba(159, 212, 255, 0.02));
   border-bottom: 1px solid rgba(106, 162, 216, 0.45);
   box-shadow: 0 1px 8px rgba(106, 162, 216, 0.22);
 }
@@ -36,7 +36,7 @@ button.destructive-action { background-color: #b8434f; color: #f3e7e8; border-co
 
 /* Fields: dark wells with a glass edge that lights up on focus. */
 entry, spinbutton, searchbar entry {
-  background-color: #071226;
+  background-color: rgba(4, 10, 24, 0.55);
   border: 1px solid rgba(159, 212, 255, 0.25);
   border-radius: 10px;
   box-shadow: none;
@@ -56,7 +56,7 @@ iconview:selected, flowboxchild:selected {
 /* Sidebars (file manager places, file chooser): a darker pane, and the
    chosen place marked with a glowing bar. */
 .sidebar, placessidebar, .navigation-sidebar, stacksidebar {
-  background-color: #0e1a33;
+  background-color: rgba(14, 26, 51, 0.45);
   border-right: 1px solid rgba(106, 162, 216, 0.3);
 }
 placessidebar row:selected, .sidebar row:selected, .navigation-sidebar row:selected {
@@ -68,7 +68,8 @@ placessidebar row:selected, .sidebar row:selected, .navigation-sidebar row:selec
 /* Menus, popovers and tooltips: glass panels with a glow rim. */
 menu, .menu, .context-menu, popover > contents, popover.background > .contents,
 tooltip, tooltip.background {
-  background-color: #13203a;
+  background-color: rgba(19, 32, 58, 0.92);
+  background-image: linear-gradient(to bottom, rgba(190, 228, 255, 0.10), rgba(159, 212, 255, 0));
   border: 1px solid rgba(159, 212, 255, 0.35);
   border-radius: 12px;
   box-shadow: 0 0 12px rgba(106, 162, 216, 0.35);

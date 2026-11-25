@@ -9,9 +9,12 @@ An Andalite war-cruiser for a desktop, built on NixOS.
   size; the others recede round the ring in perspective, smaller, higher and
   dimmer with distance, and squashed side-on round the sides. Spinning brings
   the next one round to the front. No title bars, no window chrome.
-- **The Dome**: the biosphere you carry with you, as the background: night
-  sky, nebula, two moons, the dome's glass rim, hills in mist, and the red,
-  blue and pink trees of home (`art/dome.png`, rendered by `tools/render-dome.py`).
+- **The Dome**: the view from inside a Dome ship, as the background: the
+  dome's ribs overhead against a starry nebula, a banded gas giant and its
+  moon, lit rim lights along the horizon, misty hills and a lake, and
+  blue, violet and teal Andalite trees at the sides, leaving the middle
+  calm for the carousel (`art/dome.png`, painted by `tools/render-dome.py`).
+  Running `python3 tools/render-dome.py out.png W H` paints it at any size.
 - **The ring floor**: the carousel's ring in perspective under the windows,
   marked in the script, with every window named and the front one bracketed.
 - **The script**: an invented alphabet. Thought-speak, window names and the
@@ -22,6 +25,11 @@ An Andalite war-cruiser for a desktop, built on NixOS.
 - **Liberated systemd**: systemd without the `birthDate` user-record field.
 - **escafil**: the operator. One short command for every job.
 - No Flatpak: everything comes from nixpkgs.
+- **Lean running**: zram swap (zstd, half of RAM), no waiting for the network
+  at boot, no NixOS manual built into every generation, no speech daemon, a
+  capped journal, weekly TRIM, thermald, and generations older than two
+  weeks cleared weekly. The shell loads one Dome image at the screen's size
+  and only draws its fallback when there's no art; glass repaints are batched.
 
 ## escafil
 
@@ -116,7 +124,14 @@ bottom-right one out.
 
 The glass is the Dome itself, blurred: `art/dome-glass.png`, made by
 `tools/render-glass.py`. A Dome of your own is frosted the same way when you
-log in. Mirrorwave's see-through windows get Wayfire's real blur behind them.
+log in. The pills, the launcher, the power menu and the volume display are
+all frosted panes: the Dome behind them, a thin tint, a sheen across the
+top, a glow along the bottom and a bright rim. The launcher and power menu
+lay a frosted veil over the screen behind them.
+
+Windows are glass too: the GTK theme's window, view and sidebar colours
+are see-through, Mirrorwave is at 66% opacity, and Wayfire blurs behind
+every window (`blur_by_default = type is "toplevel"` in `wayfire.ini`).
 
 ![The corners](docs/corners.png)
 
@@ -318,8 +333,9 @@ Not yet tested:
   workstation through the carousel's pipe, and a tray icon (nm-applet)
   appearing in its pill, all checked in the test session. Hovering a corner
   and the tray's menus need real input; the battery pill needs a battery.
-- Wayfire's blur behind Mirrorwave needs a GPU (the test session has none;
-  Wayfire skips the plugin there and carries on).
+- Wayfire's blur behind windows needs a GPU (the test session has none;
+  Wayfire skips the plugin there and carries on), so the see-through GTK
+  windows were checked unblurred.
 - The keybindings (they need real input), including floating and Super+drag,
   the media keys and Mirrorwave's English/Andalite switch. The launcher and
   the level gauge were opened from the command line in the test session.

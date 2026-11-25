@@ -27,7 +27,7 @@ in
         # The config is read-only, so there's nothing to watch for changes.
         auto_reload_config -1
 
-        background_opacity 0.72
+        background_opacity 0.66
         dynamic_background_opacity yes
         window_padding_width 10
         confirm_os_window_close 0

@@ -41,6 +41,26 @@
         extraGroups = [ "wheel" "networkmanager" "video" ];
       };
 
+      # Lean running: compressed swap in RAM, no waiting for the network at
+      # boot, no NixOS manual built into every generation, and old generations
+      # cleared out weekly so the store doesn't creep.
+      zramSwap = { enable = true; algorithm = "zstd"; memoryPercent = 50; };
+      boot.kernel.sysctl = {
+        "vm.swappiness" = 180;            # zram is cheap: swap to it before dropping cache
+        "vm.page-cluster" = 0;
+        "vm.watermark_boost_factor" = 0;
+        "vm.watermark_scale_factor" = 125;
+      };
+      systemd.services.NetworkManager-wait-online.enable = false;
+      documentation.nixos.enable = false;
+      documentation.doc.enable = false;
+      services.journald.settings.Journal = { SystemMaxUse = "200M"; RuntimeMaxUse = "48M"; };
+      services.fstrim.enable = true;
+      services.thermald.enable = lib.mkDefault true;
+      services.speechd.enable = lib.mkForce false;   # screen-reader speech, pulled in by default
+      boot.initrd.compressor = "zstd";
+      nix.gc = { automatic = true; dates = "weekly"; options = "--delete-older-than 14d"; };
+
       # No Flatpak on 0-Space: everything comes from nixpkgs.
       services.flatpak.enable = false;
 

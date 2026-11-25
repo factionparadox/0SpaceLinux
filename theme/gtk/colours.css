@@ -1,23 +1,25 @@
-/* 0-Space: the Andalite palette, in the names adw-gtk3 and libadwaita use. */
+/* 0-Space: the Andalite palette, in the names adw-gtk3 and libadwaita use.
+   Window, view and sidebar colours are see-through: the compositor blurs
+   what is behind them, so windows read as frosted glass over the Dome. */
 @define-color accent_color #9fd4ff;
 @define-color accent_bg_color #6aa2d8;
 @define-color accent_fg_color #071226;
-@define-color window_bg_color #0b1630;
+@define-color window_bg_color rgba(11, 22, 48, 0.78);
 @define-color window_fg_color #c8d3e6;
-@define-color view_bg_color #071226;
+@define-color view_bg_color rgba(7, 18, 38, 0.62);
 @define-color view_fg_color #c8d3e6;
-@define-color headerbar_bg_color #13203a;
+@define-color headerbar_bg_color rgba(19, 32, 58, 0.70);
 @define-color headerbar_fg_color #d8c29a;
-@define-color headerbar_backdrop_color #0b1630;
+@define-color headerbar_backdrop_color rgba(11, 22, 48, 0.70);
 @define-color headerbar_border_color #24365a;
-@define-color sidebar_bg_color #0e1a33;
+@define-color sidebar_bg_color rgba(14, 26, 51, 0.55);
 @define-color sidebar_fg_color #c8d3e6;
-@define-color secondary_sidebar_bg_color #0e1a33;
-@define-color card_bg_color #13203a;
+@define-color secondary_sidebar_bg_color rgba(14, 26, 51, 0.55);
+@define-color card_bg_color rgba(159, 212, 255, 0.06);
 @define-color card_fg_color #c8d3e6;
-@define-color popover_bg_color #13203a;
+@define-color popover_bg_color rgba(19, 32, 58, 0.94);
 @define-color popover_fg_color #c8d3e6;
-@define-color dialog_bg_color #13203a;
+@define-color dialog_bg_color rgba(19, 32, 58, 0.88);
 @define-color dialog_fg_color #c8d3e6;
 @define-color destructive_bg_color #b8434f;
 @define-color destructive_color #e06070;
