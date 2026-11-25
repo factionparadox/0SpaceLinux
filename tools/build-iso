@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the 0-Space installer ISO on this machine, from this copy of the repo.
 # Works in WSL (Arch or otherwise) and on plain Linux. Installs Nix first if
-# it isn't there (single-user, so no systemd or daemon needed). On WSL the ISO
-# is copied to your Windows Downloads folder.
+# it isn't there (single-user, so no systemd or daemon needed). The ISO lands
+# in the repo folder as 0space-linux.iso.
 #
 #   tools/build-iso
 set -euo pipefail
@@ -37,11 +37,6 @@ echo "< Building the ISO. The first build compiles the liberated systemd; later 
 nix "${nixopts[@]}" build .#iso
 
 iso=$(find -L result/iso -name '*.iso' | head -n 1)
-echo "< Built: $PWD/$iso >"
-
-if grep -qi microsoft /proc/version 2>/dev/null && command -v wslpath >/dev/null; then
-    win_home=$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')
-    dest="$(wslpath "$win_home")/Downloads/0space-linux.iso"
-    cp -f "$iso" "$dest"
-    echo "< Copied to your Windows Downloads: 0space-linux.iso >"
-fi
+cp -f "$iso" 0space-linux.iso
+chmod u+w 0space-linux.iso
+echo "< Built: $PWD/0space-linux.iso >"

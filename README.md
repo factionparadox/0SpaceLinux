@@ -266,8 +266,8 @@ git clone https://github.com/factionparadox/0SpaceLinux
 0SpaceLinux/tools/build-iso
 ```
 
-It installs Nix first if needed, builds the ISO, and on WSL copies it to your
-Windows Downloads. The first build compiles the liberated systemd and
+It installs Nix first if needed and builds the ISO into the repo folder as
+`0space-linux.iso`. The first build compiles the liberated systemd and
 downloads the rest from the NixOS cache; after that, builds reuse what's
 already built. To rebuild after changes: `git pull`, then
 `tools/build-iso` again.
