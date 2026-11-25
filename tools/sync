@@ -4,6 +4,7 @@
 # Everything is replaced except hosts/, which holds your own ship (its
 # hardware, forms and settings). Your previous system stays in the boot menu.
 #
+#   nix run github:factionparadox/0SpaceLinux   (no clone needed)
 #   tools/sync              (from a clone of the repo)
 #   escafil jump            (does this with a fresh clone)
 set -euo pipefail
@@ -21,6 +22,7 @@ prince() { if [ "$(id -u)" -eq 0 ]; then "$@"; else sudo "$@"; fi; }
 say "Taking on the newest 0-Space. Your ship's own design ($flake/hosts) is kept."
 tar -C "$src" --exclude=./.git --exclude=./hosts --exclude=./result \
     --exclude=./0space-linux.iso -cf - . | prince tar -C "$flake" --no-same-owner -xf -
+prince chmod -R u+w "$flake"   # copies from the Nix store arrive read-only
 
 say "Morphing."
 prince nixos-rebuild switch --flake "$flake#$host"
