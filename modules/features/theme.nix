@@ -7,28 +7,6 @@ let
   inherit (palette) c;
   consoleColours = palette.console;
 
-  # adw-gtk3 (GTK 3) and libadwaita (GTK 4) both take their colours from these names.
-  gtkCss = ''
-    @define-color accent_color #${c.glass};
-    @define-color accent_bg_color #${c.fur};
-    @define-color accent_fg_color #${c.void};
-    @define-color window_bg_color #${c.hull};
-    @define-color window_fg_color #${c.text};
-    @define-color view_bg_color #${c.void};
-    @define-color view_fg_color #${c.text};
-    @define-color headerbar_bg_color #${c.panel};
-    @define-color headerbar_fg_color #${c.tan};
-    @define-color headerbar_backdrop_color #${c.hull};
-    @define-color sidebar_bg_color #${c.panel};
-    @define-color sidebar_fg_color #${c.text};
-    @define-color card_bg_color #${c.panel};
-    @define-color card_fg_color #${c.text};
-    @define-color popover_bg_color #${c.panel};
-    @define-color popover_fg_color #${c.text};
-    @define-color dialog_bg_color #${c.panel};
-    @define-color dialog_fg_color #${c.text};
-    @define-color borders #${c.line};
-  '';
 in
 {
   flake.modules.nixos.theme = { config, lib, pkgs, ... }:
@@ -38,6 +16,7 @@ in
         mkdir -p $d
         cp ${../../art/boot.png} $d/boot.png
         cp ${../../art/light.png} $d/light.png
+        cp ${../../art/logo-512.png} $d/logo.png
         cp ${../../theme/plymouth/0space.script} $d/0space.script
         cat > $d/0space.plymouth <<EOF
         [Plymouth Theme]
@@ -51,7 +30,23 @@ in
         EOF
       '';
 
-      gtkCssFile = pkgs.writeText "0space-gtk.css" gtkCss;
+      # The 0Space GTK theme: adw-gtk3's dark theme underneath, the Andalite
+      # palette and glass on top (theme/gtk). Installed system-wide, so it
+      # changes with the system.
+      gtkTheme = pkgs.runCommand "0space-gtk-theme" { } ''
+        t=$out/share/themes/0Space
+        mkdir -p $t/gtk-3.0
+        sed 's/adw-gtk3-dark/0Space/' ${pkgs.adw-gtk3}/share/themes/adw-gtk3-dark/index.theme > $t/index.theme
+        {
+          echo '@import url("file://${pkgs.adw-gtk3}/share/themes/adw-gtk3-dark/gtk-3.0/gtk.css");'
+          cat ${../../theme/gtk/colours.css} ${../../theme/gtk/widgets.css}
+        } > $t/gtk-3.0/gtk.css
+        ln -s ${pkgs.adw-gtk3}/share/themes/adw-gtk3-dark/gtk-3.0/assets $t/gtk-3.0/assets
+      '';
+
+      # GTK 4 (libadwaita) apps ignore themes and read ~/.config/gtk-4.0/gtk.css;
+      # the session links that to this.
+      gtk4Css = pkgs.concatText "0space-gtk4.css" [ ../../theme/gtk/colours.css ../../theme/gtk/widgets.css ];
 
 
     in
@@ -98,6 +93,7 @@ in
 
       # --- apps: GTK, Qt, icons, cursor, fonts ---------------------------------------------
       environment.systemPackages = with pkgs; [
+        gtkTheme
         adw-gtk3
         papirus-icon-theme
         bibata-cursors
@@ -113,7 +109,7 @@ in
       programs.dconf.profiles.user.databases = [{
         settings."org/gnome/desktop/interface" = {
           color-scheme = "prefer-dark";
-          gtk-theme = "adw-gtk3-dark";
+          gtk-theme = "0Space";
           icon-theme = "Papirus-Dark";
           cursor-theme = "Bibata-Modern-Ice";
           cursor-size = lib.gvariant.mkInt32 24;
@@ -126,7 +122,7 @@ in
       environment.etc = {
         "xdg/gtk-3.0/settings.ini".text = ''
           [Settings]
-          gtk-theme-name=adw-gtk3-dark
+          gtk-theme-name=0Space
           gtk-icon-theme-name=Papirus-Dark
           gtk-cursor-theme-name=Bibata-Modern-Ice
           gtk-cursor-theme-size=24
@@ -141,7 +137,7 @@ in
           gtk-font-name=Noto Sans 11
           gtk-application-prefer-dark-theme=1
         '';
-        "0space/gtk.css".source = gtkCssFile;
+        "0space/gtk4.css".source = gtk4Css;
         "swaylock/config".text = ''
           image=${../../art/dome.png}
           scaling=fill

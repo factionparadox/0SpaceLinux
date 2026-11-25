@@ -1,0 +1,98 @@
+/* 0-Space: glass and glow over adw-gtk3 / libadwaita. */
+
+/* Header bars, menu bars and toolbars: a raised pane with a fur-blue rim. */
+headerbar, .titlebar, menubar, toolbar, .toolbar {
+  background-color: #13203a;
+  background-image: linear-gradient(to bottom, rgba(159, 212, 255, 0.08), rgba(159, 212, 255, 0));
+  border-bottom: 1px solid rgba(106, 162, 216, 0.45);
+  box-shadow: 0 1px 8px rgba(106, 162, 216, 0.22);
+}
+headerbar .title, .titlebar .title { color: #d8c29a; font-weight: bold; }
+
+/* Buttons: glass, glowing when you reach for them. */
+button {
+  background-image: none;
+  background-color: rgba(159, 212, 255, 0.06);
+  border: 1px solid rgba(159, 212, 255, 0.22);
+  border-radius: 10px;
+  box-shadow: none;
+}
+button:hover {
+  background-color: rgba(159, 212, 255, 0.12);
+  border-color: rgba(159, 212, 255, 0.6);
+  box-shadow: 0 0 7px rgba(106, 162, 216, 0.55);
+}
+button:active, button:checked {
+  background-color: rgba(106, 162, 216, 0.35);
+  border-color: #9fd4ff;
+}
+button.flat, .titlebar button.flat, headerbar button.flat {
+  background-color: transparent;
+  border-color: transparent;
+}
+button.flat:hover { border-color: rgba(159, 212, 255, 0.4); }
+button.suggested-action { background-color: #6aa2d8; color: #071226; border-color: #9fd4ff; }
+button.destructive-action { background-color: #b8434f; color: #f3e7e8; border-color: #e06070; }
+
+/* Fields: dark wells with a glass edge that lights up on focus. */
+entry, spinbutton, searchbar entry {
+  background-color: #071226;
+  border: 1px solid rgba(159, 212, 255, 0.25);
+  border-radius: 10px;
+  box-shadow: none;
+}
+entry:focus, entry:focus-within, spinbutton:focus-within {
+  border-color: #9fd4ff;
+  box-shadow: 0 0 7px rgba(106, 162, 216, 0.6);
+}
+
+/* Selection: fur blue. */
+selection, row:selected, treeview.view:selected, .view:selected,
+iconview:selected, flowboxchild:selected {
+  background-color: rgba(106, 162, 216, 0.85);
+  color: #071226;
+}
+
+/* Sidebars (file manager places, file chooser): a darker pane, and the
+   chosen place marked with a glowing bar. */
+.sidebar, placessidebar, .navigation-sidebar, stacksidebar {
+  background-color: #0e1a33;
+  border-right: 1px solid rgba(106, 162, 216, 0.3);
+}
+placessidebar row:selected, .sidebar row:selected, .navigation-sidebar row:selected {
+  background-color: rgba(106, 162, 216, 0.75);
+  color: #071226;
+  box-shadow: inset 3px 0 #9fd4ff;
+}
+
+/* Menus, popovers and tooltips: glass panels with a glow rim. */
+menu, .menu, .context-menu, popover > contents, popover.background > .contents,
+tooltip, tooltip.background {
+  background-color: #13203a;
+  border: 1px solid rgba(159, 212, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 0 12px rgba(106, 162, 216, 0.35);
+}
+menuitem:hover, menu menuitem:hover, modelbutton:hover, popover modelbutton:hover {
+  background-color: rgba(106, 162, 216, 0.3);
+}
+tooltip, tooltip label { color: #c8d3e6; }
+
+/* Scrollbars: slim and blue. */
+scrollbar slider {
+  background-color: rgba(106, 162, 216, 0.55);
+  border-radius: 6px;
+  min-width: 6px;
+  min-height: 6px;
+}
+scrollbar slider:hover { background-color: #9fd4ff; }
+
+/* Switches, checks, bars and sliders in fur blue with a little glow. */
+switch:checked { background-color: #6aa2d8; }
+check:checked, radio:checked { background-color: #6aa2d8; color: #071226; }
+progressbar progress, scale highlight, levelbar block.filled {
+  background-color: #6aa2d8;
+  box-shadow: 0 0 6px rgba(106, 162, 216, 0.6);
+}
+notebook > header tab:checked { box-shadow: inset 0 -2px #9fd4ff; }
+statusbar { color: #8fa3c4; }

@@ -1,0 +1,27 @@
+/* 0-Space: the Andalite palette, in the names adw-gtk3 and libadwaita use. */
+@define-color accent_color #9fd4ff;
+@define-color accent_bg_color #6aa2d8;
+@define-color accent_fg_color #071226;
+@define-color window_bg_color #0b1630;
+@define-color window_fg_color #c8d3e6;
+@define-color view_bg_color #071226;
+@define-color view_fg_color #c8d3e6;
+@define-color headerbar_bg_color #13203a;
+@define-color headerbar_fg_color #d8c29a;
+@define-color headerbar_backdrop_color #0b1630;
+@define-color headerbar_border_color #24365a;
+@define-color sidebar_bg_color #0e1a33;
+@define-color sidebar_fg_color #c8d3e6;
+@define-color secondary_sidebar_bg_color #0e1a33;
+@define-color card_bg_color #13203a;
+@define-color card_fg_color #c8d3e6;
+@define-color popover_bg_color #13203a;
+@define-color popover_fg_color #c8d3e6;
+@define-color dialog_bg_color #13203a;
+@define-color dialog_fg_color #c8d3e6;
+@define-color destructive_bg_color #b8434f;
+@define-color destructive_color #e06070;
+@define-color error_color #e06070;
+@define-color success_color #4fb89a;
+@define-color warning_color #d8c29a;
+@define-color borders #24365a;

@@ -13,13 +13,20 @@ dome_image = dome.Scale(dome.GetWidth() * cover, dome.GetHeight() * cover);
 dome_sprite = Sprite(dome_image);
 dome_sprite.SetPosition((w - dome_image.GetWidth()) / 2, (h - dome_image.GetHeight()) / 2, -100);
 
+logo = Image("logo.png");
+logo_size = h * 0.16;
+logo_image = logo.Scale(logo_size, logo_size);
+logo_sprite = Sprite(logo_image);
+logo_sprite.SetPosition((w - logo_size) / 2, h * 0.08, 10);
+
 title = Image.Text("0-Space Linux", 0.85, 0.76, 0.60, 1, "Sans Bold 30");
 title_sprite = Sprite(title);
-title_sprite.SetPosition((w - title.GetWidth()) / 2, h * 0.20, 10);
+title_y = h * 0.08 + logo_size + h * 0.025;
+title_sprite.SetPosition((w - title.GetWidth()) / 2, title_y, 10);
 
 words = Image.Text("< Dome integrity nominal >", 0.62, 0.83, 1.0, 1, "Sans 14");
 words_sprite = Sprite(words);
-words_sprite.SetPosition((w - words.GetWidth()) / 2, h * 0.20 + title.GetHeight() + 14, 10);
+words_sprite.SetPosition((w - words.GetWidth()) / 2, title_y + title.GetHeight() + 14, 10);
 
 light = Image("light.png");
 count = 7;

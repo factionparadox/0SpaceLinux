@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Pick each screen's scale from its pixel density, so a 2.8K laptop panel
+# isn't drawn at 1x. Runs at login.
+#
+#   ~/.config/0space/scale   a number (1, 1.25, 1.5, 2 ...) to use instead
+#
+# Screens already set to a scale other than 1 (in your wayfire.ini) are left
+# alone, as are screens that don't report a physical size.
+set -euo pipefail
+
+override="${XDG_CONFIG_HOME:-$HOME/.config}/0space/scale"
+
+wlr-randr --json | jq -r '.[] | select(.enabled)
+    | [.name, .physical_size.width, .physical_size.height,
+       (.modes[] | select(.current) | .width), (.modes[] | select(.current) | .height),
+       .scale] | @tsv' |
+while IFS=$'\t' read -r name mw mh pw ph scale; do
+    if [ -f "$override" ]; then
+        want=$(tr -d '[:space:]' < "$override")
+    else
+        [ "$scale" = "1.000000" ] || continue
+        if [ "$mw" -le 0 ] || [ "$mh" -le 0 ]; then continue; fi
+        # pixels per inch along the diagonal
+        ppi=$(jq -n "($pw*$pw + $ph*$ph | sqrt) / (($mw*$mw + $mh*$mh | sqrt) / 25.4) | floor")
+        if   [ "$ppi" -ge 190 ]; then want=2
+        elif [ "$ppi" -ge 150 ]; then want=1.5
+        elif [ "$ppi" -ge 125 ]; then want=1.25
+        else want=1
+        fi
+    fi
+    [ "$want" = 1 ] && [ "$scale" = "1.000000" ] && continue
+    wlr-randr --output "$name" --scale "$want"
+done

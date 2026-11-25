@@ -69,6 +69,7 @@ escafil orders            all of the above
 | Super+P | Proton VPN |
 | Super+S | `escafil scan` |
 | Super+B | Keep the corners out, or let them tuck away again |
+| Super+Escape | Power menu: lock, suspend, log out, restart, power off |
 
 **Windows**
 
@@ -104,7 +105,7 @@ with a soft fur-blue glow.
 | Corner | Pills |
 |---|---|
 | Top left | Workstations (the current one a glowing capsule, ones with windows a filled dot; click or scroll to go) and the front window's name |
-| Top right | The day, as `<script>/Monday`, the date and the time |
+| Top right | The day, as `<script>/Monday`, the date, the time, and power (lock, suspend, log out, restart, power off; restart and power off ask twice) |
 | Bottom right | Battery (hover for time left, or time to full; red when low), sound (click to mute, scroll for volume), network (click for `nmtui`) and the tray (left click opens, right click for the menu) |
 
 They stay out while the workstation is empty and in the overview. Once a
@@ -184,7 +185,7 @@ home's trees) runs through everything you see:
 | Consoles | The palette on every text console |
 | Login | tuigreet: `< Welcome back to the Dome >` (only when autologin is off or you log out) |
 | Terminal | Mirrorwave (below) |
-| Apps | GTK 3 and 4 dark (adw-gtk3/libadwaita) recoloured with the palette, Qt to match, Papirus icons, Bibata cursor |
+| Apps | The 0Space GTK theme (theme/gtk: glass buttons and fields with a fur-blue glow, glowing menus, fur-blue selection) for GTK 3, the same for GTK 4, Qt to match, Papirus icons, Bibata cursor |
 | Firefox | Dark, no welcome pages, no telemetry |
 | Lock | swaylock over the Dome with a fur-blue ring |
 
@@ -223,8 +224,23 @@ escafil's headings.
 
 ![The script](docs/script.png)
 
-The GTK colours are copied to `~/.config/gtk-3.0` and `gtk-4.0` on first
-login, so they're yours to change.
+GTK 4 apps read `~/.config/gtk-4.0/gtk.css`; the session links it to the
+system's copy, so theme updates reach you. Put your own file there and it's
+left alone.
+
+### Scale
+
+At login each screen's scale is picked from its pixel density: 2× on the
+Laptop 13 Pro's 2.8K panel, 1× on an ordinary monitor. To choose yourself,
+put a number in `~/.config/0space/scale` (say `1.5`).
+
+### The logo
+
+A hollow zero with six Andalite tail blades (`art/logo.svg`, drawn by
+`tools/render-logo.py`). It's on the boot splash, in fastfetch, and installed
+as the system's logo icon.
+
+![The logo](art/logo-256.png)
 
 ![Lock screen](docs/themed-lock.png)
 

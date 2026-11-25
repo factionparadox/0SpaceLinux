@@ -24,6 +24,9 @@ in
         # written as a translation is drawn in it.
         symbol_map U+100041-U+10007A 0-Space Script
 
+        # The config is read-only, so there's nothing to watch for changes.
+        auto_reload_config -1
+
         background_opacity 0.72
         dynamic_background_opacity yes
         window_padding_width 10
@@ -90,7 +93,10 @@ in
           (pkgs.writeShellScriptBin "mirrorwave" ''
             export MIRRORWAVE=1
             export KITTY_CONFIG_DIRECTORY=${configDir}
-            exec ${lib.getExe pkgs.kitty} --class mirrorwave "$@"
+            # One program for every window (each window as its own kitty costs
+            # a whole process and its own graphics driver).
+            exec ${lib.getExe pkgs.kitty} --single-instance --instance-group mirrorwave \
+              --class mirrorwave "$@"
           '')
           desktopItem
         ];

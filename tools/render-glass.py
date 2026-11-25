@@ -24,8 +24,10 @@ RADIUS = 18         # pill corner radius
 
 def frosted_dome():
     dome = Image.open(ART / "dome.png").convert("RGB")
-    small = dome.resize((dome.width // 2, dome.height // 2), Image.LANCZOS)
-    small.filter(ImageFilter.GaussianBlur(18)).save(ART / "dome-glass.png", optimize=True)
+    # A quarter size is plenty for something this blurred, and every pill
+    # holds its own copy in memory.
+    small = dome.resize((dome.width // 4, dome.height // 4), Image.LANCZOS)
+    small.filter(ImageFilter.GaussianBlur(9)).save(ART / "dome-glass.png", optimize=True)
 
 
 def halo(colour, blur, offset_y, alpha):

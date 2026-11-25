@@ -55,6 +55,7 @@ ShellRoot {
     component Translated: Row {
         id: tr
         property string text: ""
+        property string scriptText: text   // the Andalite half; shorter for long lines
         property real glyph: 8
         property color scriptInk: root.glass
         property color ink: root.furTan
@@ -64,17 +65,27 @@ ShellRoot {
         property string before: ""
         property string after: ""
         property bool outlined: false
+        property real maxWidth: 0          // 0: as wide as it needs; else the English is cut with …
         spacing: 0
-        TranslatedPlain { row: tr; text: tr.before; visible: text !== "" }
+        TranslatedPlain { id: trBefore; row: tr; text: tr.before; visible: text !== "" }
         Script {
-            text: tr.text.toLowerCase()
+            id: trScript
+            text: tr.scriptText.toLowerCase()
             glyph: tr.glyph
             ink: tr.scriptInk
             style: tr.outlined ? Text.Outline : Text.Normal
             styleColor: root.skyHigh
             anchors.verticalCenter: parent.verticalCenter
         }
-        TranslatedPlain { row: tr; text: "/" + (tr.upper ? tr.text.toUpperCase() : tr.text) + tr.after }
+        TranslatedPlain {
+            row: tr
+            text: "/" + (tr.upper ? tr.text.toUpperCase() : tr.text)
+            elide: Text.ElideRight
+            width: tr.maxWidth > 0
+                ? Math.min(implicitWidth, tr.maxWidth - trBefore.width - trScript.width - trAfter.width)
+                : implicitWidth
+        }
+        TranslatedPlain { id: trAfter; row: tr; text: tr.after; visible: text !== "" }
     }
 
     // ------------------------------------------------------------ corners
@@ -134,11 +145,16 @@ ShellRoot {
             onAtChanged: requestPaint()
             onWidthChanged: requestPaint()
             Component.onCompleted: loadImage(root.glassArt)
-            onImageLoaded: {
+            // The image can finish loading before the canvas is ready to
+            // draw; measure it whenever both are true.
+            function measure() {
+                if (!available || !isImageLoaded(root.glassArt)) return;
                 const d = getContext("2d").createImageData(root.glassArt);
                 art = Qt.size(d.width, d.height);
                 requestPaint();
             }
+            onImageLoaded: measure()
+            onAvailableChanged: measure()
 
             onPaint: {
                 const ctx = getContext("2d");
@@ -351,7 +367,10 @@ ShellRoot {
     ListModel { id: thoughts }
 
     function speak(text) {
-        thoughts.append({ "line": text });
+        // One line, never across the whole screen.
+        let line = String(text).replace(/\s+/g, " ").trim();
+        if (line.length > 140) line = line.slice(0, 138).replace(/\s+$/, "") + "…";
+        thoughts.append({ "line": line });
         while (thoughts.count > 3)
             thoughts.remove(0);
         fade.restart();
@@ -735,8 +754,9 @@ ShellRoot {
                 WlrLayershell.namespace: "0space-thought-speak"
                 exclusionMode: ExclusionMode.Ignore
                 anchors { top: true }
-                margins.top: 14
-                implicitWidth: perScreen.modelData.width * 0.7
+                // Below the corner pills, never across them.
+                margins.top: 62
+                implicitWidth: perScreen.modelData.width * 0.6
                 implicitHeight: 150
                 color: "transparent"
                 mask: Region {}
@@ -755,12 +775,14 @@ ShellRoot {
                             Translated {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 text: line
+                                scriptText: line.split(" ").slice(0, 3).join(" ")
                                 glyph: 9
                                 size: 17
                                 letterSpacing: 1.5
                                 before: "< "
                                 after: " >"
                                 outlined: true
+                                maxWidth: perScreen.modelData.width * 0.6
                             }
                         }
                     }
@@ -864,6 +886,14 @@ ShellRoot {
                 atTop: true
                 atLeft: false
                 keep: perScreen.cornersKept
+
+                // Power: lock, suspend, log out, restart, power off.
+                Pill {
+                    corner: topRight
+                    pad: 11
+                    onClicked: powerMenu.open = true
+                    Glyph { text: "\u{F0425}"; font.pixelSize: 17 }
+                }
 
                 Pill {
                     corner: topRight
@@ -983,6 +1013,137 @@ ShellRoot {
     // ------------------------------------------------------------ launcher
     // Super+Space (Wayfire runs: 0space-call launcher toggle). Type to search;
     // Up/Down to choose, Enter to launch, Esc to close.
+    // ------------------------------------------------------------ power
+    PanelWindow {
+        id: powerMenu
+        property bool open: false
+        property int selected: 0
+        property string armed: ""      // restart/off wait for a second press
+
+        readonly property var choices: [
+            { key: "lock", icon: "\u{F033E}", label: "Lock",
+              command: ["swaylock", "-f", "-C", "/etc/swaylock/config"] },
+            { key: "suspend", icon: "\u{F04B2}", label: "Suspend",
+              command: ["systemctl", "suspend"] },
+            { key: "logout", icon: "\u{F0343}", label: "Log out",
+              command: ["sh", "-c", "loginctl terminate-session \"$XDG_SESSION_ID\" || pkill -f bin/wayfire"] },
+            { key: "restart", icon: "\u{F0709}", label: "Restart", confirm: true,
+              command: ["systemctl", "reboot"] },
+            { key: "off", icon: "\u{F0425}", label: "Power off", confirm: true,
+              command: ["systemctl", "poweroff"] }
+        ]
+
+        function choose(i) {
+            const c = choices[i];
+            if (c.confirm && armed !== c.key) { armed = c.key; disarm.restart(); return; }
+            open = false;
+            Quickshell.execDetached(c.command);
+        }
+
+        visible: open
+        color: "transparent"
+        anchors { top: true; bottom: true; left: true; right: true }
+        exclusionMode: ExclusionMode.Ignore
+        WlrLayershell.layer: WlrLayer.Overlay
+        WlrLayershell.namespace: "0space-power"
+        WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+        onOpenChanged: { selected = 0; armed = ""; if (open) menu.forceActiveFocus(); }
+
+        Timer { id: disarm; interval: 3000; onTriggered: powerMenu.armed = "" }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0.03, 0.07, 0.15, 0.45)
+            MouseArea { anchors.fill: parent; onClicked: powerMenu.open = false }
+        }
+
+        Rectangle {
+            id: menu
+            focus: true
+            width: 250
+            height: rows.implicitHeight + 24
+            anchors { top: parent.top; right: parent.right; topMargin: 60; rightMargin: 14 }
+            radius: 16
+            color: Qt.rgba(0.04, 0.09, 0.19, 0.94)
+            border.color: root.glass
+            border.width: 1
+            MouseArea { anchors.fill: parent }
+
+            BorderImage {
+                anchors.fill: parent
+                anchors.margins: -36
+                z: -1
+                source: "file://" + root.artDir + "/glow.png"
+                border { left: 40; right: 40; top: 40; bottom: 40 }
+            }
+
+            Keys.onPressed: event => {
+                const n = powerMenu.choices.length;
+                if (event.key === Qt.Key_Escape) powerMenu.open = false;
+                else if (event.key === Qt.Key_Down || event.key === Qt.Key_Tab) powerMenu.selected = (powerMenu.selected + 1) % n;
+                else if (event.key === Qt.Key_Up || event.key === Qt.Key_Backtab) powerMenu.selected = (powerMenu.selected + n - 1) % n;
+                else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) powerMenu.choose(powerMenu.selected);
+                else return;
+                event.accepted = true;
+            }
+
+            Column {
+                id: rows
+                anchors { left: parent.left; right: parent.right; top: parent.top; margins: 12 }
+                spacing: 4
+
+                Repeater {
+                    model: powerMenu.choices
+                    Rectangle {
+                        id: row
+                        required property var modelData
+                        required property int index
+                        readonly property bool armedHere: powerMenu.armed === modelData.key
+                        readonly property bool current: powerMenu.selected === index
+                        width: rows.width
+                        height: 40
+                        radius: 12
+                        color: armedHere ? Qt.rgba(0.72, 0.26, 0.31, 0.35)
+                             : current ? Qt.rgba(0.42, 0.64, 0.85, 0.22) : "transparent"
+                        border.width: current || armedHere ? 1 : 0
+                        border.color: armedHere ? root.treeRed : root.glass
+
+                        Row {
+                            anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
+                            spacing: 12
+                            Glyph {
+                                text: row.modelData.icon
+                                font.pixelSize: 18
+                                color: row.armedHere ? root.treeRed : root.glass
+                            }
+                            Translated {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: row.armedHere ? "Again to " + row.modelData.label.toLowerCase() : row.modelData.label
+                                scriptText: row.modelData.label
+                                glyph: 7
+                                size: 14
+                                ink: row.armedHere ? root.treeRed : root.furTan
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onEntered: powerMenu.selected = row.index
+                            onClicked: powerMenu.choose(row.index)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    IpcHandler {
+        target: "power"
+        function toggle(): void { powerMenu.open = !powerMenu.open }
+    }
+
     IpcHandler {
         target: "launcher"
         function toggle(): void { launcher.open = !launcher.open }

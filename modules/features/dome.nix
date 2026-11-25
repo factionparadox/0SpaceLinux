@@ -13,6 +13,13 @@
           [ "quickshell -p ${shell}/shell.qml" ]
           (builtins.readFile ../../shell/wayfire.ini));
 
+      # Picks each screen's scale from its pixel density at login.
+      scaler = pkgs.writeShellApplication {
+        name = "0space-scale";
+        runtimeInputs = [ pkgs.wlr-randr pkgs.jq pkgs.coreutils ];
+        text = builtins.readFile ../../session/0space-scale;
+      };
+
       session = pkgs.writeShellScriptBin "0space-session" ''
         export XDG_CURRENT_DESKTOP=0space:wlroots
         export XDG_SESSION_DESKTOP=0space
@@ -31,19 +38,25 @@
         if [ -f "$user_dome" ]; then
           if [ ! -f "$user_glass" ] || [ "$user_dome" -nt "$user_glass" ]; then
             mkdir -p "''${user_glass%/*}"
-            ${pkgs.imagemagick}/bin/magick "$user_dome" -resize 50% -blur 0x18 "$user_glass" || true
+            ${pkgs.imagemagick}/bin/magick "$user_dome" -resize 25% -blur 0x9 "$user_glass" || true
           fi
           [ -f "$user_glass" ] && export ZEROSPACE_GLASS="$user_glass"
         fi
 
-        # First login: give GTK apps the Andalite colours (yours to change after).
+        # GTK: the 0Space theme is system-wide for GTK 3. GTK 4 (libadwaita)
+        # only reads ~/.config/gtk-4.0/gtk.css, so that's linked to the system
+        # copy and follows updates. A gtk.css of your own is left alone; the
+        # one-off copies older 0-Space versions made are cleared away.
         for v in gtk-3.0 gtk-4.0; do
-          if [ ! -e "$HOME/.config/$v/gtk.css" ]; then
-            mkdir -p "$HOME/.config/$v"
-            cp /etc/0space/gtk.css "$HOME/.config/$v/gtk.css"
-            chmod u+w "$HOME/.config/$v/gtk.css"
+          f="$HOME/.config/$v/gtk.css"
+          if [ -f "$f" ] && [ ! -L "$f" ] && head -n1 "$f" | grep -q '^@define-color accent_color #9fd4ff;$'; then
+            rm -f "$f"
           fi
         done
+        if [ ! -e "$HOME/.config/gtk-4.0/gtk.css" ] || [ -L "$HOME/.config/gtk-4.0/gtk.css" ]; then
+          mkdir -p "$HOME/.config/gtk-4.0"
+          ln -sfn /etc/0space/gtk4.css "$HOME/.config/gtk-4.0/gtk.css"
+        fi
 
         config="$HOME/.config/wayfire.ini"
         [ -f "$config" ] || config=${wayfireIni}
@@ -51,7 +64,12 @@
       '';
     in
     {
+      # Electron apps (Discord) draw natively on Wayland, so they're sharp
+      # when scaled.
+      environment.sessionVariables.NIXOS_OZONE_WL = "1";
+
       environment.systemPackages = with pkgs; [
+        scaler
         session
         quickshell
         # (the terminal is Mirrorwave, in mirrorwave.nix)
