@@ -3,7 +3,7 @@
 let
   carousel = pkgs: pkgs.stdenv.mkDerivation {
     pname = "zerospace-ring";
-    version = "0.3.0";
+    version = "0.4.0";
     src = ../../ring;
 
     nativeBuildInputs = with pkgs; [ meson ninja pkg-config ];

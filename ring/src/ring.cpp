@@ -1,14 +1,16 @@
 // 0-Space ring layout for Wayfire 0.10.
 //
 // A 3D carousel. Windows stand on a ring that runs back into the screen:
-// the front window is full size and faces you; the others recede round the
-// ring in perspective: smaller, higher and dimmer with depth, and squashed
-// side-on round the sides of the ring.
+// the front window is full size and faces you; the others stand round the
+// ring in real 3D space, seen in perspective from slightly above. Windows
+// round the sides turn to face outwards, so they foreshorten like panels on
+// a turntable, and the far side of the ring is smaller, higher and darker.
 // Rotating spins the carousel and brings the next window round to the front.
 // The overview ("stalk-eye") lays every window out flat round an ellipse.
 //
-// Tiles are real windows at full size, shrunk with a 2D transformer, so apps
-// never re-layout to a tiny size and clicks on a tile still land correctly.
+// Tiles are real windows at full size, placed with Wayfire's 3D transformer,
+// so apps never re-layout to a tiny size and clicks on a tile still land
+// correctly (the transformer maps the pointer back through the projection).
 
 #include <wayfire/plugin.hpp>
 #include <wayfire/per-output-plugin.hpp>
@@ -24,6 +26,7 @@
 #include <wayfire/view-helpers.hpp>
 #include <chrono>
 #include <wayfire/window-manager.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <wayfire/signal-definitions.hpp>
 #include <wayfire/option-wrapper.hpp>
 #include <wayfire/bindings.hpp>
@@ -118,6 +121,9 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
     wf::option_wrapper_t<double> overview_width_opt{"zerospace-ring/overview_width"};
     wf::option_wrapper_t<double> centre_height_opt{"zerospace-ring/centre_height"};
     wf::option_wrapper_t<int> gap_opt{"zerospace-ring/gap"};
+    wf::option_wrapper_t<double> ring_radius_opt{"zerospace-ring/ring_radius"};
+    wf::option_wrapper_t<double> ring_tilt_opt{"zerospace-ring/ring_tilt"};
+    wf::option_wrapper_t<double> ring_turn_opt{"zerospace-ring/ring_turn"};
 
     // Floating windows are left where you put them, above the carousel.
     std::set<wayfire_toplevel_view> floating;
@@ -129,43 +135,112 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
                !floating.count(view);
     }
 
-    std::shared_ptr<wf::scene::view_2d_transformer_t> transformer_for(wayfire_toplevel_view view)
+    std::shared_ptr<wf::scene::view_3d_transformer_t> transformer_for(wayfire_toplevel_view view)
     {
         auto tmgr = view->get_transformed_node();
-        auto tr   = tmgr->get_transformer<wf::scene::view_2d_transformer_t>(TRANSFORMER_NAME);
+        auto tr   = tmgr->get_transformer<wf::scene::view_3d_transformer_t>(TRANSFORMER_NAME);
         if (!tr)
         {
-            tr = std::make_shared<wf::scene::view_2d_transformer_t>(view);
-            tmgr->add_transformer(tr, wf::TRANSFORMER_2D, TRANSFORMER_NAME);
+            tr = std::make_shared<wf::scene::view_3d_transformer_t>(view);
+            tmgr->add_transformer(tr, wf::TRANSFORMER_3D, TRANSFORMER_NAME);
         }
 
         return tr;
     }
 
-    // Put a window at a screen position and size, faded to `alpha`. `turn`
-    // (0 to 1) squashes it horizontally, as a window seen side-on would be.
-    void place(wayfire_toplevel_view view, wf::geometry_t base, double scale,
-        double centre_x, double centre_y, float alpha, double turn = 0.0)
+    // The carousel's camera. Wayfire's own default lens is very long (22.5°),
+    // which flattens depth; a wider one gives the ring real perspective. The
+    // camera sits where a point at depth 0 keeps its exact pixel size, so the
+    // front window is drawn 1:1.
+    static constexpr float CAMERA_FOV = glm::radians(38.0f);
+    static glm::mat4 camera()
     {
-        if (alpha > 0.0f)
-        {
-            published_tiles.push_back({centre_x, centre_y, base.width * scale * (1.0 - turn),
-                base.height * scale, name_of(view)});
-        }
+        const float dist = 1.0f / std::tan(CAMERA_FOV / 2.0f);
+        return glm::perspective(CAMERA_FOV, 1.0f, 0.1f, 100.0f) *
+               glm::lookAt(glm::vec3(0, 0, dist), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+    }
 
+    // Wayfire measures depth in units of half the window's larger side. The
+    // carousel works in pixels, so `ref` is the shared pixel scale for depth.
+    double depth_ref = 1.0;
+
+    void prepare(wayfire_toplevel_view view, wf::geometry_t base)
+    {
         view->damage();
         if (view->get_pending_geometry() != base)
         {
             view->set_geometry(base);
         }
+    }
 
+    void publish_tile(wayfire_toplevel_view view,
+        const std::shared_ptr<wf::scene::view_3d_transformer_t>& tr, float alpha)
+    {
+        if (alpha <= 0.0f)
+        {
+            return;
+        }
+
+        const auto b = tr->get_bounding_box();
+        published_tiles.push_back({b.x + b.width / 2.0, b.y + b.height / 2.0,
+            (double)b.width, (double)b.height, name_of(view)});
+    }
+
+    // Flat placement (the overview): a window at a screen position, scaled,
+    // facing straight out of the screen.
+    void place_flat(wayfire_toplevel_view view, wf::geometry_t base, double scale,
+        double centre_x, double centre_y, float alpha)
+    {
+        prepare(view, base);
         auto tr = transformer_for(view);
-        tr->scale_x = scale * (1.0 - turn);
-        tr->scale_y = scale;
-        tr->translation_x = centre_x - (base.x + base.width / 2.0);
-        tr->translation_y = centre_y - (base.y + base.height / 2.0);
-        tr->alpha = alpha;
+        tr->view_proj   = wf::scene::view_3d_transformer_t::default_proj_matrix() *
+            wf::scene::view_3d_transformer_t::default_view_matrix();
+        tr->rotation    = glm::mat4(1.0);
+        tr->scaling     = glm::scale(glm::mat4(1.0), glm::vec3(scale, scale, 1.0));
+        // Wayfire's 3D space has y pointing up.
+        tr->translation = glm::translate(glm::mat4(1.0), glm::vec3(
+            centre_x - (base.x + base.width / 2.0), -(centre_y - (base.y + base.height / 2.0)), 0.0));
+        tr->color = {1.0f, 1.0f, 1.0f, alpha};
         view->damage();
+        publish_tile(view, tr, alpha);
+    }
+
+    // 3D placement (the carousel): `world` moves and turns the window in
+    // pixel space round its own centre, which is the front window's centre.
+    // `dim` darkens it, `alpha` fades it.
+    void place_3d(wayfire_toplevel_view view, wf::geometry_t base, const glm::mat4& world,
+        float dim, float alpha)
+    {
+        prepare(view, base);
+        auto tr = transformer_for(view);
+
+        // Undo Wayfire's per-window depth scale, so every window shares one
+        // depth scale and the ring stays round whatever size a window is.
+        const auto bbox = tr->get_children_bounding_box();
+        const double own = std::max(1.0, (double)std::max(bbox.width, bbox.height));
+        const float k = (float)(own / depth_ref);
+
+        tr->view_proj   = camera();
+        tr->rotation    = glm::scale(glm::mat4(1.0), glm::vec3(1.0f, 1.0f, k)) * world;
+        tr->scaling     = glm::mat4(1.0);
+        tr->translation = glm::mat4(1.0);
+        tr->color = {dim, dim, dim, alpha};
+        view->damage();
+        publish_tile(view, tr, alpha);
+    }
+
+    // Where a point in the carousel's pixel space lands on screen, relative
+    // to the front window's centre (y down, as on screen).
+    wf::pointf_t project(const glm::vec3& p)
+    {
+        const glm::mat4 depth = glm::scale(glm::mat4(1.0), glm::vec3(1.0f, 1.0f, (float)(2.0 / depth_ref)));
+        glm::vec4 v = camera() * depth * glm::vec4(p, 1.0f);
+        if (std::abs(v.w) < 1e-6)
+        {
+            return {0, 0};
+        }
+
+        return {v.x / v.w, -v.y / v.w};
     }
 
     // Only windows on the current workspace take part in the ring; each
@@ -443,25 +518,33 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
             for (size_t i = 0; i < n; i++)
             {
                 const double a = (-90.0 + i * 360.0 / n) * M_PI / 180.0;
-                place(vis[i], centre, tile_scale, cx + rx * std::cos(a), cy + ry * std::sin(a), 1.0f);
+                place_flat(vis[i], centre, tile_scale, cx + rx * std::cos(a), cy + ry * std::sin(a), 1.0f);
             }
 
             publish(true, centre, cx, cy, rx, ry, false);
             return;
         }
 
-        // The carousel: a ring on the floor, seen from slightly above. Angle 0
-        // is the front; depth runs 0 (front) to 1 (back). Farther windows get
-        // smaller and move towards the horizon and the middle, as in a real
-        // perspective view.
+        // The carousel: a real ring in 3D space, seen from slightly above.
+        // The front window sits at the origin (its own centre), facing you at
+        // full size. The ring runs back into the screen from there; angle 0
+        // is the front, and depth runs 0 (front) to 1 (back).
         const size_t n = vis.size();
         const double step = (n > 0) ? 2.0 * M_PI / n : 0.0;
-        const double front_y = centre.y + centre.height / 2.0;
-        const double horizon = wa.y + wa.height * 0.08;
-        const double radius_x = wa.width * 0.78;
-        const double depth_k = 2.4;                 // how fast things shrink with distance
-        const double min_alpha = 0.5;
-        auto perspective = [&] (double depth) { return 1.0 / (1.0 + depth_k * depth); };
+        const double front_cx = centre.x + centre.width / 2.0;
+        const double front_cy = centre.y + centre.height / 2.0;
+        depth_ref = std::max(1, std::max(centre.width, centre.height));
+
+        const float radius = (float)(wa.width * (double)ring_radius_opt);
+        const glm::mat4 tilt = glm::rotate(glm::mat4(1.0f),
+            glm::radians((float)(double)ring_tilt_opt), glm::vec3(1.0f, 0.0f, 0.0f));
+        // Where a spot on the ring floor ends up, once the ring is tilted.
+        auto on_ring = [&] (double a, float y)
+        {
+            glm::vec4 p = tilt * glm::vec4(radius * (float)std::sin(a), 0.0f,
+                -radius + radius * (float)std::cos(a), 1.0f);
+            return glm::vec3(p.x, p.y + y, p.z);
+        };
 
         struct slot_t
         {
@@ -474,19 +557,25 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
         {
             const double a = i * step + spin_offset;
             const double depth = (1.0 - std::cos(a)) / 2.0;
-            const double scale = perspective(depth);
-            const double x = cx + radius_x * std::sin(a) * scale;
-            const double y = horizon + (front_y - horizon) * scale;
-            // Windows round the sides are seen side-on: squash them, but never
-            // so far that they disappear.
-            const double turn = 0.5 * std::abs(std::sin(a));
-            float alpha = (float)(1.0 - (1.0 - min_alpha) * depth);
+
+            // Each window turns to face outwards from the ring as it goes
+            // round, like a panel on a turntable, so the side windows are
+            // seen at an angle with their far edge shorter. They turn back to
+            // face you round the back, so you never see a window from behind.
+            const float yaw = (float)((double)ring_turn_opt * std::sin(a));
+            const glm::mat4 world =
+                glm::translate(glm::mat4(1.0f), on_ring(a, 0.0f)) *
+                glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+
+            // Farther windows are darker and a little see-through.
+            float dim   = (float)(1.0 - 0.55 * depth);
+            float alpha = (float)(1.0 - 0.25 * depth);
             if (full && (i != 0))
             {
                 alpha = 0.0f;
             }
 
-            place(vis[i], centre, scale, x, y, alpha, turn);
+            place_3d(vis[i], centre, world, dim, alpha);
             order.push_back({vis[i], depth});
         }
 
@@ -499,13 +588,15 @@ class zerospace_ring_t : public wf::per_output_plugin_instance_t
 
         raise_floating();
 
-        // The floor ring the windows stand on, through their bases.
-        const double s_back = perspective(1.0);
-        const double s_side = perspective(0.5);
-        const double front_base = front_y + centre.height / 2.0;
-        const double back_base  = horizon + (front_y - horizon) * s_back + centre.height * s_back / 2.0;
-        publish(true, centre, cx, (front_base + back_base) / 2.0, radius_x * s_side,
-            (front_base - back_base) / 2.0, full);
+        // The floor ring the windows stand on, through their bases: project
+        // its front, back and sides, and hand the shell the ellipse they make.
+        const float base_y = -centre.height / 2.0f;
+        const auto f = project(on_ring(0.0, base_y));
+        const auto b = project(on_ring(M_PI, base_y));
+        const auto l = project(on_ring(-M_PI / 2.0, base_y));
+        const auto r = project(on_ring(M_PI / 2.0, base_y));
+        publish(true, centre, front_cx + (l.x + r.x) / 2.0, front_cy + (f.y + b.y) / 2.0,
+            std::abs(r.x - l.x) / 2.0, std::abs(f.y - b.y) / 2.0, full);
 
         if (settle)
         {

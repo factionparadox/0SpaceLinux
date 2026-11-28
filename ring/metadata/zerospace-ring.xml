@@ -74,5 +74,29 @@
 			<default>16</default>
 			<min>0</min>
 		</option>
+		<option name="ring_radius" type="double">
+			<_short>Ring radius</_short>
+			<_long>Radius of the carousel ring, as a fraction of the screen width.</_long>
+			<default>0.6</default>
+			<min>0.2</min>
+			<max>2.0</max>
+			<precision>0.01</precision>
+		</option>
+		<option name="ring_tilt" type="double">
+			<_short>Ring tilt</_short>
+			<_long>How far the ring is tipped towards you, in degrees; more tilt lifts the far side higher up the screen.</_long>
+			<default>30</default>
+			<min>0</min>
+			<max>60</max>
+			<precision>1</precision>
+		</option>
+		<option name="ring_turn" type="double">
+			<_short>Window turn</_short>
+			<_long>How far windows round the sides turn to face outwards, in radians (about 1.57 is fully side-on).</_long>
+			<default>0.85</default>
+			<min>0</min>
+			<max>1.4</max>
+			<precision>0.01</precision>
+		</option>
 	</plugin>
 </wayfire>
